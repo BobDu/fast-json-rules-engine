@@ -7,8 +7,26 @@ on:
     branches: [main]
 
 jobs:
+  # tsdown/rolldown requires Node >= 20 to BUILD; build once here and share the
+  # artifact so the test matrix can run on older Node without rebuilding.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
   test:
-    name: test (Node ${{ matrix.node }})
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -21,23 +39,25 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      # Run the built artifact directly (no rebuild — the pretest hook is for local use).
+      - run: node test/run.js
 
+  # Verify the shipped artifact runs on the oldest supported Node (14). No deps
+  # needed — the smoke test only loads dist and exercises compile/evaluate.
   compat-node14:
-    name: node 14 artifact smoke
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Build with a modern Node (tsup requires Node >= 18)...
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      # ...then verify the shipped artifact runs on the oldest supported Node.
       - uses: actions/setup-node@v4
         with:
           node-version: 14
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
       - run: node test/smoke-node14.js
