@@ -21,6 +21,16 @@ interface Ctx {
   pathResolver?: PathResolver
 }
 
+// json-rules-engine requires a rule's (and named condition's) root to be one of
+// all/any/not/condition — a bare leaf at the root is rejected. We match that.
+function hasBooleanRoot(cond: unknown): boolean {
+  return (
+    cond !== null &&
+    typeof cond === 'object' &&
+    ('all' in cond || 'any' in cond || 'not' in cond || 'condition' in cond)
+  )
+}
+
 function isValueReference(value: unknown): value is { fact: string; path?: string } {
   return (
     value !== null &&
@@ -29,41 +39,77 @@ function isValueReference(value: unknown): value is { fact: string; path?: strin
   )
 }
 
-/** Build a path applier for a leaf's `path`, honoring a custom resolver. */
+/**
+ * Build a path applier for a leaf's `path`, honoring a custom resolver.
+ *
+ * Matches json-rules-engine (almanac.js): the path is applied ONLY when the
+ * fact value is a non-null object; for primitives/null/undefined the value is
+ * returned unchanged (the path is ignored). This guard precedes the resolver,
+ * so it wraps custom resolvers too.
+ */
 function pathApplier(
   path: string | undefined,
   ctx: Ctx,
 ): ((value: unknown) => unknown) | null {
   if (path === undefined) return null
-  if (ctx.pathResolver) {
-    const resolver = ctx.pathResolver
-    return (value) => resolver(value, path)
-  }
-  return compilePath(path)
+  const resolve = ctx.pathResolver
+    ? (value: unknown) => ctx.pathResolver!(value, path)
+    : compilePath(path)
+  return (value) => (value !== null && typeof value === 'object' ? resolve(value) : value)
 }
 
-/** Compile a single fact read (definedness + optional path) into a closure. */
+/**
+ * Compile a single fact read (optional path) into a closure.
+ *
+ * Undefined-fact throwing is NOT handled here — it is done by a per-rule
+ * presence pre-check (see below), because json-rules-engine evaluates every
+ * condition in a priority set (Promise.all, no short-circuit) and throws if any
+ * referenced fact is absent. Doing the throw here would let our `&&`/`||`
+ * short-circuit hide undefined facts that json-rules-engine surfaces. Moving it
+ * to the pre-check lets us keep short-circuit while matching throw behavior.
+ */
 function factReader(
   factName: string,
   path: string | undefined,
   ctx: Ctx,
 ): (facts: Facts) => unknown {
   const applyPath = pathApplier(path, ctx)
-  const allowUndefined = ctx.allowUndefinedFacts
+  if (applyPath === null) return (facts) => facts[factName]
+  return (facts) => applyPath(facts[factName])
+}
 
-  if (applyPath === null) {
-    if (allowUndefined) return (facts) => facts[factName]
-    return (facts) => {
-      if (!(factName in facts)) throw new UndefinedFactError(factName)
-      return facts[factName]
+/**
+ * Collect every fact name referenced anywhere in a condition tree (leaf facts
+ * and value-as-fact references, following named-condition references). Used to
+ * build the undefined-fact presence pre-check.
+ */
+function collectFacts(cond: unknown, ctx: Ctx, acc: Set<string>, stack: Set<string>): void {
+  if (cond === null || typeof cond !== 'object') return
+  const c = cond as any
+  if ('all' in c) {
+    if (Array.isArray(c.all)) for (const sub of c.all) collectFacts(sub, ctx, acc, stack)
+    return
+  }
+  if ('any' in c) {
+    if (Array.isArray(c.any)) for (const sub of c.any) collectFacts(sub, ctx, acc, stack)
+    return
+  }
+  if ('not' in c) {
+    collectFacts(c.not, ctx, acc, stack)
+    return
+  }
+  if ('condition' in c) {
+    const name = c.condition
+    if (typeof name !== 'string' || stack.has(name)) return
+    if (ctx.conditions && Object.prototype.hasOwnProperty.call(ctx.conditions, name)) {
+      stack.add(name)
+      collectFacts(ctx.conditions[name], ctx, acc, stack)
+      stack.delete(name)
     }
+    return
   }
-
-  if (allowUndefined) return (facts) => applyPath(facts[factName])
-  return (facts) => {
-    if (!(factName in facts)) throw new UndefinedFactError(factName)
-    return applyPath(facts[factName])
-  }
+  if (typeof c.fact === 'string') acc.add(c.fact)
+  if (isValueReference(c.value)) acc.add(c.value.fact)
 }
 
 function compileLeaf(cond: any, ctx: Ctx): Predicate {
@@ -108,6 +154,9 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
     if (!Array.isArray(cond.any)) throw new CompileError('"any" must be an array of conditions')
     const subs = cond.any.map((c) => compileCondition(c, ctx, stack))
     const len = subs.length
+    // json-rules-engine quirk: an empty conditions array evaluates to true for
+    // BOTH all and any (prioritizeAndRun returns true when length === 0).
+    if (len === 0) return () => true
     return (facts) => {
       for (let i = 0; i < len; i++) if (subs[i](facts)) return true
       return false
@@ -124,6 +173,11 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
     if (typeof name !== 'string') throw new CompileError('"condition" reference must be a string')
     if (!ctx.conditions || !Object.prototype.hasOwnProperty.call(ctx.conditions, name)) {
       throw new CompileError(`Unknown named condition: "${name}" (pass it via options.conditions)`)
+    }
+    if (!hasBooleanRoot(ctx.conditions[name])) {
+      throw new CompileError(
+        `Named condition "${name}" root must contain a single instance of "all", "any", "not", or "condition"`,
+      )
     }
     if (stack.has(name)) {
       throw new CompileError(`Circular condition reference: "${name}"`)
@@ -142,6 +196,8 @@ interface CompiledRule {
   event: RuleDefinition['event']
   priority: number
   name?: string
+  /** Facts that must be present (only populated when allowUndefinedFacts is false). */
+  requiredFacts: string[]
 }
 
 /**
@@ -169,11 +225,24 @@ export function compile(
     if (!('event' in rule) || rule.event === null || typeof rule.event !== 'object') {
       throw new CompileError(`Rule at index ${index} is missing a valid "event"`)
     }
+    if (!hasBooleanRoot(rule.conditions)) {
+      throw new CompileError(
+        `Rule at index ${index}: "conditions" root must contain a single instance of ` +
+          `"all", "any", "not", or "condition"`,
+      )
+    }
+    let requiredFacts: string[] = []
+    if (!ctx.allowUndefinedFacts) {
+      const acc = new Set<string>()
+      collectFacts(rule.conditions, ctx, acc, new Set<string>())
+      requiredFacts = Array.from(acc)
+    }
     return {
       predicate: compileCondition(rule.conditions, ctx, new Set<string>()),
       event: rule.event,
       priority: typeof rule.priority === 'number' ? rule.priority : 1,
       name: rule.name,
+      requiredFacts,
     }
   })
 
@@ -185,6 +254,7 @@ export function compile(
     .map((entry) => entry.rule)
 
   const stopOnFirstEvent = options.stopOnFirstEvent ?? false
+  const allowUndefinedFacts = ctx.allowUndefinedFacts
   const count = order.length
 
   return function evaluate(facts: Facts): EngineResult {
@@ -195,6 +265,17 @@ export function compile(
 
     for (let i = 0; i < count; i++) {
       const rule = order[i]
+      // Undefined-fact pre-check: json-rules-engine evaluates all conditions in
+      // a rule (no short-circuit within a priority set) and throws if any
+      // referenced fact is absent. Replicate that here so short-circuit
+      // evaluation below cannot hide it. Rules are checked in priority order and
+      // only up to a stopOnFirstEvent match, mirroring engine.stop() semantics.
+      if (!allowUndefinedFacts) {
+        const required = rule.requiredFacts
+        for (let k = 0; k < required.length; k++) {
+          if (!(required[k] in facts)) throw new UndefinedFactError(required[k])
+        }
+      }
       const matched = rule.predicate(facts)
       const result: RuleResult = {
         result: matched,
