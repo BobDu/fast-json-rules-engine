@@ -26,21 +26,26 @@
     "node": ">=14"
   },
   "sideEffects": false,
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build",
     "test": "node test/run.js",
@@ -51,7 +56,6 @@
     "json-rules-engine": "6.6.0",
     "jsonpath-plus": "^7.2.0",
     "tsdown": "^0.22.3",
-    "tsup": "^8",
     "typescript": "^5"
   }
 }
