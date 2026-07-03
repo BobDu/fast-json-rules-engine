@@ -1,0 +1,53 @@
+{
+  "name": "fast-json-rules-engine",
+  "version": "0.0.0",
+  "description": "Fast, compiled, zero-dependency rules engine compatible with the json-rules-engine JSON rule format",
+  "keywords": [
+    "rules",
+    "rules-engine",
+    "rule-engine",
+    "json-rules-engine",
+    "rule",
+    "engine",
+    "compiler",
+    "fast"
+  ],
+  "license": "MIT",
+  "author": "BobDu <i@bobdu.cc>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BobDu/fast-json-rules-engine.git"
+  },
+  "homepage": "https://github.com/BobDu/fast-json-rules-engine#readme",
+  "bugs": {
+    "url": "https://github.com/BobDu/fast-json-rules-engine/issues"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "node test/run.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "json-rules-engine": "6.6.0",
+    "tsup": "^8",
+    "typescript": "^5"
+  }
+}
