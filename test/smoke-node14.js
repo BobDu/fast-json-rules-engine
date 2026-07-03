@@ -2,9 +2,9 @@
 // Node 14 compatibility smoke test: loads the BUILT CJS artifact (no build
 // tools, no json-rules-engine) and exercises compile + evaluate. This asserts
 // the shipped code actually runs on the oldest supported Node, since the build
-// (tsup) and the differential suite run on newer Node.
+// (tsdown) and the differential suite run on newer Node.
 const assert = require('assert')
-const { compile, UndefinedFactError, CompileError } = require('../dist/index.js')
+const { compile, UndefinedFactError, CompileError } = require('../dist/index.cjs')
 
 const rules = [
   {

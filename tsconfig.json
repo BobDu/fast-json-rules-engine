@@ -11,5 +11,5 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
-  "include": ["src", "tsup.config.ts"]
+  "include": ["src", "tsdown.config.ts"]
 }

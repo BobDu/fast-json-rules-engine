@@ -3,7 +3,7 @@
 // same through json-rules-engine, and assert identical behavior — including
 // "both throw" for undefined facts / bad operators.
 const assert = require('assert')
-const { compile } = require('../dist/index.js')
+const { compile } = require('../dist/index.cjs')
 const { referenceRun, normalizeOwn } = require('./reference')
 
 function sortEvents(events) {

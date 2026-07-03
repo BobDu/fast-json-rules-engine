@@ -4,7 +4,7 @@
 // library via expectMatch; a few also assert our exact output directly.
 const assert = require('assert')
 const { test } = require('./harness')
-const { compile, CompileError } = require('../dist/index.js')
+const { compile, CompileError } = require('../dist/index.cjs')
 const { expectMatch } = require('./diff')
 const { JSONPath } = require('jsonpath-plus')
 
