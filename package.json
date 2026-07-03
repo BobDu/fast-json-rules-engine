@@ -43,7 +43,8 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build",
-    "test": "node test/run.js"
+    "test": "node test/run.js",
+    "bench": "npm run build && node bench/bench.mjs"
   },
   "devDependencies": {
     "@types/node": "^20",
