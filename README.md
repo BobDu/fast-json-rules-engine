@@ -88,7 +88,34 @@ const tier = evaluate(facts).events[0]?.params.tier
 | `stopOnFirstEvent` | `false` | Stop after the first (highest-priority) matching rule. |
 | `operators` | – | Custom operators: `{ name: (factValue, value) => boolean }`. |
 | `conditions` | – | Named conditions referenced via `{ condition: 'name' }`. |
-| `pathResolver` | built-in | `(value, path) => resolved`. Override for full JSONPath (see below). |
+| `pathResolver` | – | `(value, path) => resolved`. Required to use `path` — see [Paths](#paths). |
+
+### Paths
+
+fast-json-rules-engine does **not** bundle a JSONPath implementation — a
+condition `path` requires an injected `pathResolver`. Pass jsonpath-plus (what
+json-rules-engine uses internally) for identical behavior, including full
+JSONPath (wildcards, recursive descent, filters, slices):
+
+```sh
+npm install jsonpath-plus
+```
+
+```js
+import { compile } from 'fast-json-rules-engine'
+import { JSONPath } from 'jsonpath-plus'
+
+const evaluate = compile(rules, {
+  pathResolver: (value, path) => JSONPath({ path, json: value, wrap: false }),
+})
+// now conditions like { fact: 'user', path: '$.profile.level', operator: 'greaterThan', value: 10 } work
+```
+
+Without a `pathResolver`, any rule using `path` throws `CompileError` at compile
+time (fail loud, never a silent wrong answer). A path is applied only when the
+fact value is a non-null object — matching json-rules-engine; primitives pass
+through unchanged. Not bundling the JSONPath engine keeps the core zero-dependency
+and leaves path semantics to the library that specializes in them.
 
 ## Compatibility
 
@@ -104,7 +131,7 @@ documents compile unchanged:
 | Value as fact reference | `value: { fact: 'other' }` |
 | Named conditions | via `options.conditions` and `{ condition: 'name' }` |
 | Custom operators | via `options.operators` |
-| `path` | Simple dot/bracket paths built in; inject `pathResolver` for full JSONPath |
+| `path` | Via an injected `pathResolver` (e.g. jsonpath-plus) — see [Paths](#paths) |
 | `allowUndefinedFacts` | Both modes |
 
 What it deliberately does **not** do (the runtime dynamism it trades for speed):
@@ -115,7 +142,8 @@ What it deliberately does **not** do (the runtime dynamism it trades for speed):
 | Event handlers (`engine.on('success', …)`) | Read the returned `events` instead. |
 | The evaluated conditions tree in results | `results` carry `{ result, event, priority, name }` — not the per-condition result tree that json-rules-engine deep-clones each run. |
 | Runtime rule mutation (`addRule` after run) | Rules are compiled up front; recompile to change them. |
-| Full JSONPath in the default resolver | Wildcards, recursive descent, filters, and slices are rejected at compile time — pass a `pathResolver` (e.g. wrapping `jsonpath-plus`) for those. |
+| Bundled JSONPath | No path engine is shipped; `path` requires an injected `pathResolver` (see [Paths](#paths)). |
+| Sub-condition priorities | A `priority` on a nested condition (json-rules-engine's within-rule evaluation ordering) is rejected at compile time — meaningless once compiled over static facts. |
 
 Unknown operators, unsupported paths, malformed conditions, and circular named
 conditions **throw `CompileError` at compile time**, not silently at runtime.
