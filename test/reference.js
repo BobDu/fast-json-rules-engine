@@ -31,6 +31,8 @@ async function referenceRun(rules, facts, options = {}) {
   }
   const list = Array.isArray(rules) ? rules : [rules]
   for (const r of list) engine.addRule(clone(r))
+  // Mirror our stopOnFirstEvent via json-rules-engine's stop()-on-success.
+  if (options.stopOnFirstEvent) engine.on('success', () => engine.stop())
 
   try {
     const res = await engine.run(facts)
