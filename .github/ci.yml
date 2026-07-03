@@ -1,0 +1,47 @@
+# NOTE: staged here (not under .github/workflows/) because pushing an active
+# workflow requires a token with the `workflow` scope. To activate:
+#   gh auth refresh -s workflow      # grant the scope (interactive)
+#   git mv .github/ci.yml .github/workflows/ci.yml && git commit && git push
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  compat-node14:
+    name: node 14 artifact smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Build with a modern Node (tsup requires Node >= 18)...
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # ...then verify the shipped artifact runs on the oldest supported Node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 14
+      - run: node test/smoke-node14.js
