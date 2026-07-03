@@ -45,7 +45,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown src/index.ts --format cjs,esm --dts --sourcemap --clean --platform node --target node14",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build",
     "test": "node test/run.js",
