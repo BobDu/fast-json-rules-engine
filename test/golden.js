@@ -129,6 +129,12 @@ test('path into a nested fact value (injected resolver)', async () => {
   await expectMatch(rule, { user: { profile: { level: 20 } } }, { pathResolver: jp })
   await expectMatch(rule, { user: { profile: { level: 5 } } }, { pathResolver: jp })
   await expectMatch(rule, { user: {} }, { allowUndefinedFacts: true, pathResolver: jp })
+  // full JSONPath (array index) works through the injected resolver, identical to json-rules-engine
+  await expectMatch(
+    [{ conditions: { all: [{ fact: 'items', path: '$[0].id', operator: 'equal', value: 7 }] }, event: ev('a') }],
+    { items: [{ id: 7 }, { id: 9 }] },
+    { pathResolver: jp },
+  )
 })
 
 test('path without a pathResolver throws CompileError (no bundled JSONPath)', () => {
