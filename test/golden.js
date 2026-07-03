@@ -6,8 +6,13 @@ const assert = require('assert')
 const { test } = require('./harness')
 const { compile, CompileError } = require('../dist/index.js')
 const { expectMatch } = require('./diff')
+const { JSONPath } = require('jsonpath-plus')
 
 const ev = (id) => ({ type: id, params: { groupId: id } })
+
+// The resolver users are expected to inject for `path` support — the same
+// jsonpath-plus json-rules-engine uses internally, so behavior is identical.
+const jp = (value, path) => JSONPath({ path, json: value, wrap: false })
 
 // --- numberValidator: `null >= 0` is true in raw JS but the numeric operators
 // gate on Number.parseFloat(x).toString() !== 'NaN', so null fails the compare.
@@ -118,12 +123,19 @@ test('tied priorities compared as a set', () =>
     { orderInsensitive: true },
   ))
 
-// --- path resolution
-test('path into a nested fact value', async () => {
+// --- path resolution (via injected jsonpath-plus, matching json-rules-engine)
+test('path into a nested fact value (injected resolver)', async () => {
   const rule = [{ conditions: { all: [{ fact: 'user', path: '$.profile.level', operator: 'greaterThan', value: 10 }] }, event: ev('a') }]
-  await expectMatch(rule, { user: { profile: { level: 20 } } })
-  await expectMatch(rule, { user: { profile: { level: 5 } } })
-  await expectMatch(rule, { user: {} }, { allowUndefinedFacts: true })
+  await expectMatch(rule, { user: { profile: { level: 20 } } }, { pathResolver: jp })
+  await expectMatch(rule, { user: { profile: { level: 5 } } }, { pathResolver: jp })
+  await expectMatch(rule, { user: {} }, { allowUndefinedFacts: true, pathResolver: jp })
+})
+
+test('path without a pathResolver throws CompileError (no bundled JSONPath)', () => {
+  assert.throws(
+    () => compile([{ conditions: { all: [{ fact: 'user', path: '$.x', operator: 'equal', value: 1 }] }, event: ev('a') }]),
+    CompileError,
+  )
 })
 
 // --- named condition references
@@ -146,6 +158,60 @@ test('stopOnFirstEvent returns only the highest-priority match', () => {
   const { events } = evaluate({ x: 1 })
   assert.strictEqual(events.length, 1)
   assert.strictEqual(events[0].type, 'high')
+})
+
+// --- sweep-found divergences (now fixed): checked against json-rules-engine
+test('both all and any present → any wins (json-rules-engine key precedence)', () =>
+  expectMatch(
+    [{ conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }], any: [{ fact: 'x', operator: 'equal', value: 2 }] }, event: ev('a') }],
+    { x: 2 },
+  ))
+
+test('fact named like a prototype member is undefined, not the inherited value', async () => {
+  await expectMatch(
+    [{ conditions: { all: [{ fact: 'toString', operator: 'equal', value: { fact: 'missing' } }] }, event: ev('a') }],
+    {},
+    { allowUndefinedFacts: true },
+  )
+  // and it throws (not silently reads the inherited fn) when undefined facts aren't allowed
+  await expectMatch([{ conditions: { all: [{ fact: 'hasOwnProperty', operator: 'equal', value: 1 }] }, event: ev('a') }], {})
+})
+
+test('missing "value" throws (both engines)', () =>
+  expectMatch([{ conditions: { all: [{ fact: 'x', operator: 'equal' }] }, event: ev('a') }], { x: 1 }))
+
+test('event without "type" throws (both engines)', () =>
+  expectMatch([{ conditions: { all: [] }, event: { params: { a: 1 } } }], { x: 1 }))
+
+test('negative and fractional priorities throw (both engines)', async () => {
+  await expectMatch([{ conditions: { all: [] }, event: ev('a'), priority: -3 }], { x: 1 })
+  await expectMatch([{ conditions: { all: [] }, event: ev('a'), priority: 0.5 }], { x: 1 })
+})
+
+test('numeric-string priority is parsed (both engines)', () =>
+  expectMatch(
+    [
+      { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('hi'), priority: '3' },
+      { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('lo'), priority: 2 },
+    ],
+    { x: 1 },
+  ))
+
+test('custom operator whose name contains ":" is matched whole', () =>
+  expectMatch(
+    [{ conditions: { all: [{ fact: 'f', operator: 'not:equal', value: 5 }] }, event: ev('a') }],
+    { f: 5 },
+    { operators: { 'not:equal': () => true } },
+  ))
+
+test('sub-condition priority is rejected (documented non-support)', () => {
+  assert.throws(
+    () =>
+      compile([
+        { conditions: { all: [{ fact: 'a', operator: 'equal', value: 1, priority: 10 }] }, event: ev('a') },
+      ]),
+    CompileError,
+  )
 })
 
 // --- compile-time guards (our loud-failure surface)

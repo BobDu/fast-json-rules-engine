@@ -1,6 +1,5 @@
 import { CompileError, UndefinedFactError } from './errors'
 import { resolveOperator, type Evaluate } from './operators'
-import { compilePath } from './path'
 import type {
   CompiledRules,
   CompileOptions,
@@ -21,6 +20,9 @@ interface Ctx {
   pathResolver?: PathResolver
 }
 
+const hasOwn = (obj: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(obj, key)
+
 // json-rules-engine requires a rule's (and named condition's) root to be one of
 // all/any/not/condition — a bare leaf at the root is rejected. We match that.
 function hasBooleanRoot(cond: unknown): boolean {
@@ -40,22 +42,33 @@ function isValueReference(value: unknown): value is { fact: string; path?: strin
 }
 
 /**
- * Build a path applier for a leaf's `path`, honoring a custom resolver.
+ * Build a path applier for a leaf's `path`.
  *
- * Matches json-rules-engine (almanac.js): the path is applied ONLY when the
- * fact value is a non-null object; for primitives/null/undefined the value is
- * returned unchanged (the path is ignored). This guard precedes the resolver,
- * so it wraps custom resolvers too.
+ * This library does NOT bundle a JSONPath implementation — reimplementing
+ * jsonpath-plus's exact semantics (leading-zero indices, own-vs-inherited
+ * members, truthiness-based descent, …) is a correctness liability. A `path`
+ * therefore requires an explicit `pathResolver`; pass jsonpath-plus for
+ * behavior identical to json-rules-engine. Absent one, we fail loud at compile.
+ *
+ * The non-null-object guard matches json-rules-engine (almanac.js): a path is
+ * applied ONLY when the fact value is a non-null object; primitives/null/
+ * undefined are returned unchanged. The guard precedes the resolver.
  */
 function pathApplier(
   path: string | undefined,
   ctx: Ctx,
 ): ((value: unknown) => unknown) | null {
   if (path === undefined) return null
+  if (!ctx.pathResolver) {
+    throw new CompileError(
+      `Condition uses "path" ("${path}") but no pathResolver was provided. ` +
+        `fast-json-rules-engine does not bundle a JSONPath implementation; pass ` +
+        `options.pathResolver, e.g. (value, p) => JSONPath({ path: p, json: value, wrap: false }) ` +
+        `from jsonpath-plus for behavior identical to json-rules-engine.`,
+    )
+  }
   const resolve = ctx.pathResolver
-    ? (value: unknown) => ctx.pathResolver!(value, path)
-    : compilePath(path)
-  return (value) => (value !== null && typeof value === 'object' ? resolve(value) : value)
+  return (value) => (value !== null && typeof value === 'object' ? resolve(value, path) : value)
 }
 
 /**
@@ -73,9 +86,12 @@ function factReader(
   path: string | undefined,
   ctx: Ctx,
 ): (facts: Facts) => unknown {
+  // Own-property read: json-rules-engine builds its fact map from `for...in` +
+  // Map, so inherited members (toString/constructor/…) are NOT facts. A raw
+  // `facts[name]` would resolve those from the prototype chain; guard with hasOwn.
   const applyPath = pathApplier(path, ctx)
-  if (applyPath === null) return (facts) => facts[factName]
-  return (facts) => applyPath(facts[factName])
+  if (applyPath === null) return (facts) => (hasOwn(facts, factName) ? facts[factName] : undefined)
+  return (facts) => applyPath(hasOwn(facts, factName) ? facts[factName] : undefined)
 }
 
 /**
@@ -86,12 +102,14 @@ function factReader(
 function collectFacts(cond: unknown, ctx: Ctx, acc: Set<string>, stack: Set<string>): void {
   if (cond === null || typeof cond !== 'object') return
   const c = cond as any
-  if ('all' in c) {
-    if (Array.isArray(c.all)) for (const sub of c.all) collectFacts(sub, ctx, acc, stack)
-    return
-  }
+  // Key precedence must match compileCondition (any > all > not > condition) so
+  // that a malformed both-all-and-any condition collects the same branch it evaluates.
   if ('any' in c) {
     if (Array.isArray(c.any)) for (const sub of c.any) collectFacts(sub, ctx, acc, stack)
+    return
+  }
+  if ('all' in c) {
+    if (Array.isArray(c.all)) for (const sub of c.all) collectFacts(sub, ctx, acc, stack)
     return
   }
   if ('not' in c) {
@@ -122,6 +140,10 @@ function compileLeaf(cond: any, ctx: Ctx): Predicate {
   if (typeof cond.operator !== 'string') {
     throw new CompileError(`Condition on fact "${cond.fact}" is missing a string "operator"`)
   }
+  // json-rules-engine's Condition constructor requires a "value" property.
+  if (!hasOwn(cond, 'value')) {
+    throw new CompileError(`Condition on fact "${cond.fact}" is missing a "value"`)
+  }
 
   const evaluate: Evaluate = resolveOperator(cond.operator, ctx.operators)
   const readFact = factReader(cond.fact, cond.path, ctx)
@@ -139,17 +161,19 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
   if (cond === null || typeof cond !== 'object') {
     throw new CompileError(`Invalid condition: ${JSON.stringify(cond)}`)
   }
-
-  if ('all' in cond) {
-    if (!Array.isArray(cond.all)) throw new CompileError('"all" must be an array of conditions')
-    const subs = cond.all.map((c) => compileCondition(c, ctx, stack))
-    const len = subs.length
-    return (facts) => {
-      for (let i = 0; i < len; i++) if (!subs[i](facts)) return false
-      return true
-    }
+  // Sub-condition priorities drive json-rules-engine's between-priority-set
+  // short-circuit — a runtime-ordering feature that has no meaning once rules
+  // are compiled over static facts. Rather than silently ignore it (which would
+  // mis-handle undefined-fact throwing), reject it loudly.
+  if (hasOwn(cond, 'priority')) {
+    throw new CompileError(
+      `Sub-condition priorities are not supported (found "priority" on a nested condition); ` +
+        `remove it or restructure the rule.`,
+    )
   }
 
+  // Key precedence matches json-rules-engine's Condition.booleanOperator:
+  // any > all > not (> condition reference).
   if ('any' in cond) {
     if (!Array.isArray(cond.any)) throw new CompileError('"any" must be an array of conditions')
     const subs = cond.any.map((c) => compileCondition(c, ctx, stack))
@@ -160,6 +184,16 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
     return (facts) => {
       for (let i = 0; i < len; i++) if (subs[i](facts)) return true
       return false
+    }
+  }
+
+  if ('all' in cond) {
+    if (!Array.isArray(cond.all)) throw new CompileError('"all" must be an array of conditions')
+    const subs = cond.all.map((c) => compileCondition(c, ctx, stack))
+    const len = subs.length
+    return (facts) => {
+      for (let i = 0; i < len; i++) if (!subs[i](facts)) return false
+      return true
     }
   }
 
@@ -222,8 +256,16 @@ export function compile(
     if (rule === null || typeof rule !== 'object' || !('conditions' in rule)) {
       throw new CompileError(`Rule at index ${index} is missing "conditions"`)
     }
-    if (!('event' in rule) || rule.event === null || typeof rule.event !== 'object') {
+    if (
+      !('event' in rule) ||
+      rule.event === null ||
+      typeof rule.event !== 'object' ||
+      Array.isArray(rule.event)
+    ) {
       throw new CompileError(`Rule at index ${index} is missing a valid "event"`)
+    }
+    if (!hasOwn(rule.event as object, 'type')) {
+      throw new CompileError(`Rule at index ${index}: "event" requires a "type" property`)
     }
     if (!hasBooleanRoot(rule.conditions)) {
       throw new CompileError(
@@ -237,10 +279,18 @@ export function compile(
       collectFacts(rule.conditions, ctx, acc, new Set<string>())
       requiredFacts = Array.from(acc)
     }
+    // Match json-rules-engine's setPriority: (priority || 1), parseInt, and
+    // reject <= 0 (so negatives and fractions in (-1,1) throw; 2.9 -> 2).
+    const priority = parseInt(String(rule.priority || 1), 10)
+    if (!(priority > 0)) {
+      throw new CompileError(
+        `Rule at index ${index}: priority must parse to a positive integer (got ${JSON.stringify(rule.priority)})`,
+      )
+    }
     return {
       predicate: compileCondition(rule.conditions, ctx, new Set<string>()),
       event: rule.event,
-      priority: typeof rule.priority === 'number' ? rule.priority : 1,
+      priority,
       name: rule.name,
       requiredFacts,
     }
@@ -273,7 +323,7 @@ export function compile(
       if (!allowUndefinedFacts) {
         const required = rule.requiredFacts
         for (let k = 0; k < required.length; k++) {
-          if (!(required[k] in facts)) throw new UndefinedFactError(required[k])
+          if (!hasOwn(facts, required[k])) throw new UndefinedFactError(required[k])
         }
       }
       const matched = rule.predicate(facts)

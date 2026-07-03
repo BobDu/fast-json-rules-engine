@@ -15,7 +15,6 @@
 export { compile } from './compile'
 export { CompileError, UndefinedFactError } from './errors'
 export { KNOWN_OPERATORS, KNOWN_DECORATORS } from './operators'
-export { defaultPathResolver } from './path'
 export type {
   AllCondition,
   AnyCondition,

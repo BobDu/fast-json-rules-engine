@@ -22,19 +22,22 @@ async function referenceRun(rules, facts, options = {}) {
   if (options.allowUndefinedFacts !== undefined) {
     engineOptions.allowUndefinedFacts = options.allowUndefinedFacts
   }
-  const engine = new Engine([], engineOptions)
-  if (options.operators) {
-    for (const [name, fn] of Object.entries(options.operators)) engine.addOperator(name, fn)
-  }
-  if (options.conditions) {
-    for (const [name, cond] of Object.entries(options.conditions)) engine.setCondition(name, clone(cond))
-  }
-  const list = Array.isArray(rules) ? rules : [rules]
-  for (const r of list) engine.addRule(clone(r))
-  // Mirror our stopOnFirstEvent via json-rules-engine's stop()-on-success.
-  if (options.stopOnFirstEvent) engine.on('success', () => engine.stop())
-
   try {
+    const engine = new Engine([], engineOptions)
+    if (options.operators) {
+      for (const [name, fn] of Object.entries(options.operators)) engine.addOperator(name, fn)
+    }
+    if (options.conditions) {
+      for (const [name, cond] of Object.entries(options.conditions)) engine.setCondition(name, clone(cond))
+    }
+    const list = Array.isArray(rules) ? rules : [rules]
+    // addRule/setCondition validate eagerly and can throw — keep them inside the
+    // try so json-rules-engine's construction-time errors compare as threw:true
+    // against our compile-time CompileError.
+    for (const r of list) engine.addRule(clone(r))
+    // Mirror our stopOnFirstEvent via json-rules-engine's stop()-on-success.
+    if (options.stopOnFirstEvent) engine.on('success', () => engine.stop())
+
     const res = await engine.run(facts)
     return {
       threw: false,

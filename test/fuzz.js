@@ -12,6 +12,11 @@
 //   - custom operators: options.operators vs engine.addOperator
 const { test } = require('./harness')
 const { expectMatch } = require('./diff')
+const { JSONPath } = require('jsonpath-plus')
+
+// Inject the same jsonpath-plus json-rules-engine uses, so `path` is resolved
+// identically on both sides.
+const jp = (value, path) => JSONPath({ path, json: value, wrap: false })
 
 // --- deterministic PRNG (mulberry32) ---------------------------------------
 function mulberry32(seed) {
@@ -25,7 +30,8 @@ function mulberry32(seed) {
   }
 }
 
-const FACT_NAMES = ['a', 'b', 'c', 'arr', 'nested']
+// Includes prototype member names to keep the own-property fact semantics under test.
+const FACT_NAMES = ['a', 'b', 'c', 'arr', 'nested', 'toString', 'constructor']
 const SCALAR_OPERATORS = ['equal', 'notEqual', 'greaterThan', 'greaterThanInclusive', 'lessThan', 'lessThanInclusive']
 const NUMBERS = [0, 1, -1, 5, 10, 100, 3.5, -2.5]
 const STRINGS = ['US', 'GB', 'BR', 'x', '']
@@ -160,7 +166,7 @@ function makeFuzzTest(label, baseSeed, iterations, mode) {
       const seed = baseSeed + i
       const rng = mulberry32(seed)
 
-      const options = { allowUndefinedFacts: rng() < 0.5 }
+      const options = { allowUndefinedFacts: rng() < 0.5, pathResolver: jp }
       const feats = { conditions: [], customOps: false }
 
       if (mode === 'stop') options.stopOnFirstEvent = true

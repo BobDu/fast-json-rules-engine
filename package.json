@@ -49,6 +49,8 @@
   "devDependencies": {
     "@types/node": "^20",
     "json-rules-engine": "6.6.0",
+    "jsonpath-plus": "^7.2.0",
+    "tsdown": "^0.22.3",
     "tsup": "^8",
     "typescript": "^5"
   }

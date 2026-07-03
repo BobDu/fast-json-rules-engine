@@ -67,31 +67,44 @@ function decorate(dec: DecoratorSpec, inner: Evaluate): Evaluate {
  * Decorators are applied so the leftmost is outermost — matching
  * json-rules-engine's OperatorMap.get (collect left-to-right, apply reversed).
  */
+const has = (obj: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(obj, key)
+
 export function resolveOperator(
   name: string,
   custom?: Record<string, OperatorFn>,
 ): Evaluate {
-  const parts = name.split(':')
-  const baseName = parts[parts.length - 1]
-  const decoratorNames = parts.slice(0, -1)
+  const isOperator = (n: string): boolean =>
+    (custom !== undefined && has(custom, n)) || has(BASE_OPERATORS, n)
 
-  let evaluate: Evaluate
-  if (custom && Object.prototype.hasOwnProperty.call(custom, baseName)) {
-    const fn = custom[baseName]
-    evaluate = (a, b) => fn(a, b)
-  } else if (Object.prototype.hasOwnProperty.call(BASE_OPERATORS, baseName)) {
-    evaluate = specToEvaluate(BASE_OPERATORS[baseName])
-  } else {
-    throw new CompileError(`Unknown operator: "${baseName}"`)
+  // Replicate json-rules-engine's OperatorMap.get: starting from the FULL name,
+  // peel one leftmost decorator prefix at a time until the remainder is a known
+  // operator. So a custom operator literally named "not:equal" matches whole (no
+  // decorator applied), and an unknown prefix / missing base fails loud. hasOwn
+  // guards keep prototype names (e.g. "toString") from resolving to inherited members.
+  const decorators: DecoratorSpec[] = []
+  let opName = name
+  while (!isOperator(opName)) {
+    const idx = opName.indexOf(':')
+    if (idx <= 0) throw new CompileError(`Unknown operator: "${opName}"`)
+    const decName = opName.slice(0, idx)
+    if (!has(DECORATORS, decName)) throw new CompileError(`Unknown operator decorator: "${decName}"`)
+    decorators.unshift(DECORATORS[decName])
+    opName = opName.slice(idx + 1)
   }
 
-  // Apply reversed: the last decorator in the list wraps closest to the base.
-  for (let i = decoratorNames.length - 1; i >= 0; i--) {
-    const decName = decoratorNames[i]
-    if (!Object.prototype.hasOwnProperty.call(DECORATORS, decName)) {
-      throw new CompileError(`Unknown operator decorator: "${decName}"`)
-    }
-    evaluate = decorate(DECORATORS[decName], evaluate)
+  let evaluate: Evaluate
+  if (custom !== undefined && has(custom, opName)) {
+    const fn = custom[opName]
+    evaluate = (a, b) => fn(a, b)
+  } else {
+    evaluate = specToEvaluate(BASE_OPERATORS[opName])
+  }
+
+  // decorators were unshifted (innermost first); apply in array order so the
+  // leftmost decorator in the name ends up outermost.
+  for (let i = 0; i < decorators.length; i++) {
+    evaluate = decorate(decorators[i], evaluate)
   }
 
   return evaluate
