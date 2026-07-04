@@ -27,8 +27,8 @@ npm install fast-json-rules-engine
 
 ## Usage
 
-> Full, runnable walkthrough of every feature (operators, decorators, priorities,
-> named/custom operators, paths, …): **[docs/USAGE.md](./docs/USAGE.md)**.
+> Full walkthrough of every feature: **[docs/USAGE.md](./docs/USAGE.md)**.
+> Runnable scripts (real rules + facts + output): **[examples/](./examples/)**.
 
 ```js
 import { compile } from 'fast-json-rules-engine'
