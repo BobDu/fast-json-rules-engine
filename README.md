@@ -162,6 +162,7 @@ What it deliberately does **not** do (the runtime dynamism it trades for speed):
 
 Unknown operators, unsupported paths, malformed conditions, and circular named
 conditions **throw `CompileError` at compile time**, not silently at runtime.
+For workarounds to the unsupported features, see [docs/MIGRATING.md](./docs/MIGRATING.md).
 
 ### Semantics
 
@@ -193,20 +194,14 @@ async facts — pure overhead when facts are static values._
 
 ## Migrating from json-rules-engine
 
-1. Move engine construction out of the hot path: build your rules array once and
-   call `compile(rules, options)` — cache the returned function.
-2. Replace `await engine.run(facts)` with `evaluate(facts)` (synchronous).
-3. Replace `engine.on('success', …)` / `engine.on('failure', …)` handlers with
-   reading `events` / `failureEvents` from the result.
-4. For "first matching rule wins", use `events[0]` (events are priority-ordered)
-   or `stopOnFirstEvent: true`.
-5. Custom operators move from `engine.addOperator(name, cb)` to
-   `compile(rules, { operators: { name: cb } })`; named conditions from
-   `engine.setCondition(name, cond)` to `{ conditions: { name: cond } }`.
+Your rule JSON and `events` are compatible; swap `new Engine + addRule + await
+run` for `compile + evaluate` (synchronous), and read `events` instead of
+registering `on('success')` handlers. Runtime-dynamic features (async facts,
+event handlers, the conditions result tree, custom almanac) aren't replicated.
 
-If you rely on async fact functions, event-driven side effects during
-evaluation, or the full evaluated-conditions result tree, stay on
-json-rules-engine — those are the features traded away here.
+**Full guide** — API mapping, a supported / one-line-change / unsupported
+breakdown, edge cases, and the example-by-example mapping:
+**[docs/MIGRATING.md](./docs/MIGRATING.md)**.
 
 ## How it works
 
