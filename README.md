@@ -117,7 +117,19 @@ fact value is a non-null object — matching json-rules-engine; primitives pass
 through unchanged. Not bundling the JSONPath engine keeps the core zero-dependency
 and leaves path semantics to the library that specializes in them.
 
+Migrating a json-rules-engine rule that uses `path`? Install jsonpath-plus and
+pass the one-liner above — nothing else in your rules changes.
+
 ## Compatibility
+
+fast-json-rules-engine is a **drop-in replacement, not a reimplementation**. Any
+json-rules-engine rule document compiles unchanged and produces identical
+`events`. What it deliberately does *not* replicate is json-rules-engine's
+runtime dynamism — async facts, event handlers, the evaluated-conditions result
+tree, runtime rule mutation — which is exactly what makes it slow per run. Each
+feature is kept or dropped by weighing compatibility value against implementation
+complexity and runtime overhead; a few rarely-used or malformed-input behaviors
+are intentionally rejected loudly rather than replicated (see the tables below).
 
 The **rule format** is fully supported — existing json-rules-engine rule
 documents compile unchanged:
