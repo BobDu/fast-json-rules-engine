@@ -101,8 +101,13 @@ export interface EngineResult {
   failureResults: RuleResult[]
 }
 
-/** Facts to evaluate against: a plain object of static values. */
-export type Facts = Record<string, unknown>
+/**
+ * Facts to evaluate against: a plain object of static values. Typed with `any`
+ * values (mirroring json-rules-engine's `run(facts: Record<string, any>)`) so
+ * that interface-typed facts objects — which lack an implicit index signature —
+ * are accepted at the call site. Internally, fact values are read as `unknown`.
+ */
+export type Facts = Record<string, any>
 
 /**
  * A custom operator. `factValue` is the (possibly path-resolved) fact; `value`
@@ -125,6 +130,11 @@ export interface CompileOptions {
   conditions?: Record<string, TopLevelCondition>
   /** When false (default), an absent fact throws UndefinedFactError. */
   allowUndefinedFacts?: boolean
+  /**
+   * When true, a `{ condition }` reference to an unknown named condition compiles
+   * to `false` instead of throwing (matches json-rules-engine). Default false.
+   */
+  allowUndefinedConditions?: boolean
   /** Stop after the first (highest-priority) matching rule. Default false. */
   stopOnFirstEvent?: boolean
   /** Override how `path` is resolved into a fact value. */
