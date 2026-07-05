@@ -51,11 +51,14 @@ const DECORATORS: Record<string, DecoratorSpec> = {
 
 function specToEvaluate(spec: OperatorSpec): Evaluate {
   const { cb, validator } = spec
-  return (a, b) => validator(a) && cb(a, b)
+  // Skip the validator layer for operators whose validator is alwaysValid
+  // (equal/notEqual/in/notIn) — the hottest operators become a bare cb.
+  return validator === alwaysValid ? cb : (a, b) => validator(a) && cb(a, b)
 }
 
 function decorate(dec: DecoratorSpec, inner: Evaluate): Evaluate {
   const { cb, validator } = dec
+  if (validator === alwaysValid) return (a, b) => cb(a, b, inner)
   return (a, b) => validator(a) && cb(a, b, inner)
 }
 
