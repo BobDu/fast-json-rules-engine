@@ -52,10 +52,14 @@
     "bench": "npm run build && node bench/bench.mjs"
   },
   "devDependencies": {
+    "@fast-check/vitest": "^0.4.1",
     "@types/node": "^20",
+    "@vitest/coverage-v8": "^4.1.9",
+    "fast-check": "^4.8.0",
     "json-rules-engine": "6.6.0",
     "jsonpath-plus": "^7.2.0",
     "tsdown": "^0.22.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }
