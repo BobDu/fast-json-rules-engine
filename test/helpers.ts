@@ -1,5 +1,6 @@
 import { Engine } from 'json-rules-engine'
 import { expect } from 'vitest'
+import { isDeepStrictEqual } from 'node:util'
 import { compile } from '../src/index'
 import type { CompileOptions, Facts, RuleDefinition } from '../src/index'
 
@@ -7,24 +8,30 @@ import type { CompileOptions, Facts, RuleDefinition } from '../src/index'
 // structuredClone — which preserves NaN/Infinity/undefined that JSON clone would
 // mangle. This is why the differential oracle can faithfully feed edge values.
 //
-// Events are compared as FULL objects (not reduced to { type, params }) so event
-// normalization divergences — dropped falsy params, dropped non-type/params keys,
-// and params-key presence — are caught against json-rules-engine (see B2). The
-// event inside results/failureResults is a SEPARATE surface, so it is compared
-// too (a regression that de-normalized result.event would otherwise be invisible).
+// All four output surfaces are compared as FULL objects against json-rules-engine:
+// events / failureEvents (whole event objects, so dropped falsy params, dropped
+// extra keys, and params-key presence are caught — see B2) AND results /
+// failureResults as { result, name, event } tuples (so result.name / result.result
+// and the normalized result.event are verified, not just events).
 
 type NormEvent = Record<string, unknown>
+interface NormResult {
+  result: boolean
+  name: unknown
+  event: NormEvent
+}
 interface Outcome {
   threw: boolean
   events?: NormEvent[]
   failureEvents?: NormEvent[]
-  resultEvents?: NormEvent[]
-  failureResultEvents?: NormEvent[]
+  results?: NormResult[]
+  failureResults?: NormResult[]
   error?: unknown
 }
 
-const norm = (events: unknown[]): NormEvent[] => events.map((e) => structuredClone(e) as NormEvent)
-const eventsOf = (results: Array<{ event: unknown }>): unknown[] => results.map((r) => r.event)
+const normEvents = (events: unknown[]): NormEvent[] => events.map((e) => structuredClone(e) as NormEvent)
+const normResults = (rs: Array<{ result: boolean; name?: unknown; event: unknown }>): NormResult[] =>
+  rs.map((r) => ({ result: r.result, name: r.name ?? null, event: structuredClone(r.event) as NormEvent }))
 
 /** Run the same rules through the real json-rules-engine, capturing throw vs output. */
 export async function referenceRun(
@@ -49,10 +56,10 @@ export async function referenceRun(
     const res = await engine.run(facts)
     return {
       threw: false,
-      events: norm(res.events),
-      failureEvents: norm(res.failureEvents),
-      resultEvents: norm(eventsOf(res.results as Array<{ event: unknown }>)),
-      failureResultEvents: norm(eventsOf(res.failureResults as Array<{ event: unknown }>)),
+      events: normEvents(res.events),
+      failureEvents: normEvents(res.failureEvents),
+      results: normResults(res.results as never),
+      failureResults: normResults(res.failureResults as never),
     }
   } catch (error) {
     return { threw: true, error }
@@ -68,24 +75,23 @@ function evaluateOwn(
     const r = compile(rules, options)(facts)
     return {
       threw: false,
-      events: norm(r.events),
-      failureEvents: norm(r.failureEvents),
-      resultEvents: norm(eventsOf(r.results)),
-      failureResultEvents: norm(eventsOf(r.failureResults)),
+      events: normEvents(r.events),
+      failureEvents: normEvents(r.failureEvents),
+      results: normResults(r.results),
+      failureResults: normResults(r.failureResults),
     }
   } catch (error) {
     return { threw: true, error }
   }
 }
 
-const stableKey = (e: NormEvent): string => JSON.stringify(e)
-const sortEvents = (evs: NormEvent[]): NormEvent[] =>
-  [...evs].sort((a, b) => (stableKey(a) < stableKey(b) ? -1 : stableKey(a) > stableKey(b) ? 1 : 0))
+const key = (x: unknown): string => JSON.stringify(x)
+const sortBy = <T>(xs: T[]): T[] => [...xs].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0))
 
 /**
  * Assert our compiled output matches json-rules-engine for the same rules/facts,
- * including "both throw". orderInsensitive compares events as a multiset (used
- * when tied priorities make within-priority order implementation-defined).
+ * including "both throw". orderInsensitive compares each surface as a multiset
+ * (used when tied priorities make within-priority order implementation-defined).
  */
 export async function expectMatch(
   rules: RuleDefinition | RuleDefinition[],
@@ -96,17 +102,14 @@ export async function expectMatch(
   const ref = await referenceRun(rules, facts, options)
   const mine = evaluateOwn(rules, facts, options)
 
-  expect(
-    mine.threw,
-    `throw mismatch: mine=${mine.threw} ref=${ref.threw}`,
-  ).toBe(ref.threw)
+  expect(mine.threw, `throw mismatch: mine=${mine.threw} ref=${ref.threw}`).toBe(ref.threw)
   if (ref.threw) return
 
-  const pick = cmp.orderInsensitive ? sortEvents : (x: NormEvent[]) => x
+  const pick = cmp.orderInsensitive ? sortBy : <T>(x: T[]) => x
   expect(pick(mine.events!)).toEqual(pick(ref.events!))
   expect(pick(mine.failureEvents!)).toEqual(pick(ref.failureEvents!))
-  expect(pick(mine.resultEvents!)).toEqual(pick(ref.resultEvents!))
-  expect(pick(mine.failureResultEvents!)).toEqual(pick(ref.failureResultEvents!))
+  expect(pick(mine.results!)).toEqual(pick(ref.results!))
+  expect(pick(mine.failureResults!)).toEqual(pick(ref.failureResults!))
 }
 
 /** Non-throwing variant for fast-check properties: returns true iff engines agree. */
@@ -119,12 +122,11 @@ export async function agrees(
   const ref = await referenceRun(rules, facts, options)
   const mine = evaluateOwn(rules, facts, options)
   if (mine.threw || ref.threw) return mine.threw === ref.threw
-  const pick = cmp.orderInsensitive ? sortEvents : (x: NormEvent[]) => x
-  const eq = (a: NormEvent[], b: NormEvent[]): boolean => JSON.stringify(a) === JSON.stringify(b)
+  const pick = cmp.orderInsensitive ? sortBy : <T>(x: T[]) => x
   return (
-    eq(pick(mine.events!), pick(ref.events!)) &&
-    eq(pick(mine.failureEvents!), pick(ref.failureEvents!)) &&
-    eq(pick(mine.resultEvents!), pick(ref.resultEvents!)) &&
-    eq(pick(mine.failureResultEvents!), pick(ref.failureResultEvents!))
+    isDeepStrictEqual(pick(mine.events!), pick(ref.events!)) &&
+    isDeepStrictEqual(pick(mine.failureEvents!), pick(ref.failureEvents!)) &&
+    isDeepStrictEqual(pick(mine.results!), pick(ref.results!)) &&
+    isDeepStrictEqual(pick(mine.failureResults!), pick(ref.failureResults!))
   )
 }

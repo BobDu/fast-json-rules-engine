@@ -13,14 +13,18 @@ import type { CompileOptions } from '../src/index'
 // they may be skipped while json-rules-engine (Promise.all) always throws — a
 // documented behavior difference for malformed input, not exercised here.
 
-export const jp = (value: unknown, path: string): unknown => JSONPath({ path, json: value, wrap: false })
+export const jp = (value: unknown, path: string): unknown =>
+  JSONPath({ path, json: value as object, wrap: false })
 
 export const CUSTOM_OPS: CompileOptions['operators'] = {
   startsWith: (a, b) => typeof a === 'string' && typeof b === 'string' && a.indexOf(b) === 0,
   divisibleBy: (a, b) => Number.isInteger(a) && Number.isInteger(b) && b !== 0 && a % b === 0,
 }
 
-const factName = fc.constantFrom('a', 'b', 'c', 'arr', 'nested', 'toString', 'constructor')
+// Note: '' is intentionally excluded — json-rules-engine's Fact constructor
+// rejects an empty factId ('factId required'), so an empty fact name is invalid
+// input upstream, not a rule-semantics divergence.
+const factName = fc.constantFrom('a', 'b', 'c', 'arr', 'nested', 'toString', 'constructor', 'hasOwnProperty')
 const scalar = fc.oneof(
   fc.integer({ min: -100, max: 100 }),
   fc.double(), // includes NaN, ±Infinity, -0
@@ -28,7 +32,10 @@ const scalar = fc.oneof(
   fc.boolean(),
   fc.constant(null),
 )
-const arrayVal = fc.array(fc.oneof(fc.integer({ min: -10, max: 10 }), fc.string()), { maxLength: 5 })
+const arrayVal = fc.array(
+  fc.oneof(fc.integer({ min: -10, max: 10 }), fc.string(), fc.constantFrom(null, true, false, NaN, Infinity, -Infinity)),
+  { maxLength: 5 },
+)
 
 const CMP = fc.constantFrom(
   'equal', 'notEqual', 'lessThan', 'lessThanInclusive', 'greaterThan', 'greaterThanInclusive',
@@ -119,12 +126,12 @@ export const facts = fc
 
 // Tied priorities allowed (1..5) — exercises within-priority ordering (compared as a set).
 export const rulesTied = fc.array(
-  fc.record({ conditions: rootCond, event, priority: fc.integer({ min: 1, max: 5 }) }),
+  fc.record({ conditions: rootCond, event, priority: fc.integer({ min: 1, max: 5 }), name: fc.option(fc.string(), { nil: undefined }) }),
   { minLength: 1, maxLength: 6 },
 )
 // Distinct priorities — required for stopOnFirstEvent (tied + stop diverges by design).
 export const rulesDistinct = fc
-  .array(fc.record({ conditions: rootCond, event }), { minLength: 1, maxLength: 6 })
+  .array(fc.record({ conditions: rootCond, event, name: fc.option(fc.string(), { nil: undefined }) }), { minLength: 1, maxLength: 6 })
   .map((rs) => rs.map((r, i) => ({ ...r, priority: i + 1 })))
 
 // --- Named-condition variant (differential). A fixed pool of top-level named
@@ -155,6 +162,6 @@ const rootCondWithRef = fc.oneof(
 )
 
 export const rulesWithRefTied = fc.array(
-  fc.record({ conditions: rootCondWithRef, event, priority: fc.integer({ min: 1, max: 5 }) }),
+  fc.record({ conditions: rootCondWithRef, event, priority: fc.integer({ min: 1, max: 5 }), name: fc.option(fc.string(), { nil: undefined }) }),
   { minLength: 1, maxLength: 6 },
 )

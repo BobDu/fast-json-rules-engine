@@ -47,7 +47,7 @@
   "scripts": {
     "build": "tsdown src/index.ts --format cjs,esm --dts --sourcemap --clean --platform node --target node14",
     "prepack": "npm run build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
