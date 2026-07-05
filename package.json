@@ -47,6 +47,7 @@
   "scripts": {
     "build": "tsdown src/index.ts --format cjs,esm --dts --sourcemap --clean --platform node --target node14",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
     "pretest": "npm run build",
     "test": "node test/run.js",
     "bench": "npm run build && node bench/bench.mjs"
@@ -55,11 +56,14 @@
     "@fast-check/vitest": "^0.4.1",
     "@types/node": "^20",
     "@vitest/coverage-v8": "^4.1.9",
+    "eslint": "^10.6.0",
+    "eslint-plugin-n": "^18.2.1",
     "fast-check": "^4.8.0",
     "json-rules-engine": "6.6.0",
     "jsonpath-plus": "^7.2.0",
     "tsdown": "^0.22.3",
     "typescript": "^5",
+    "typescript-eslint": "^8.62.1",
     "vitest": "^4.1.9"
   }
 }
