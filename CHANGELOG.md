@@ -11,8 +11,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Core `compile(rules, options)` API returning a synchronous evaluator.
 - Full json-rules-engine rule-format support: 10 operators, 6 operator
   decorators, nested `all`/`any`/`not`, `priority`, value-as-fact references,
-  named conditions, custom operators, and a minimal built-in `path` resolver
-  (with a `pathResolver` hook for full JSONPath).
+  named conditions, and custom operators. `path` support is via an injected
+  `pathResolver` — no JSONPath engine is bundled; inject jsonpath-plus, or a rule
+  using `path` throws `CompileError` at compile time.
 - `stopOnFirstEvent` option for first-match evaluation.
 - Differential fuzzing suite checking output against json-rules-engine 6.6.0.
 - Benchmark (`npm run bench`).

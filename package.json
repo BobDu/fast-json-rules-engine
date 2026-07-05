@@ -42,10 +42,12 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsdown src/index.ts --format cjs,esm --dts --sourcemap --clean --platform node --target node14",
+    "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run",

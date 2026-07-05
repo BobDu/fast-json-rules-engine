@@ -59,7 +59,7 @@ const { events } = evaluate({ country: 'US', spend: 250 })
 //            { type: 'payer', params: { tier: 'silver' } }]
 
 // events are ordered by priority (highest first), so the first is the top match:
-const topTier = events[0]?.params.tier // 'gold'
+const topTier = events[0]?.params?.tier // 'gold'
 ```
 
 `evaluate(facts)` returns:
@@ -80,7 +80,7 @@ pattern), `stopOnFirstEvent` stops at the first hit and is dramatically faster:
 
 ```js
 const evaluate = compile(rules, { stopOnFirstEvent: true })
-const tier = evaluate(facts).events[0]?.params.tier
+const tier = evaluate(facts).events[0]?.params?.tier
 ```
 
 ### Options
