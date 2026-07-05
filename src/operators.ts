@@ -96,26 +96,28 @@ export function resolveOperator(
     if (idx <= 0) throw new CompileError(`Unknown operator: "${opName}"`)
     const decName = opName.slice(0, idx)
     if (!has(DECORATORS, decName)) throw new CompileError(`Unknown operator decorator: "${decName}"`)
-    decorators.unshift(DECORATORS[decName])
+    decorators.unshift(DECORATORS[decName]!)
     opName = opName.slice(idx + 1)
   }
 
   let evaluate: Evaluate
   if (custom !== undefined && has(custom, opName)) {
-    const fn = custom[opName]
+    const fn = custom[opName]!
     evaluate = (a, b) => fn(a, b)
   } else {
-    evaluate = specToEvaluate(BASE_OPERATORS[opName])
+    evaluate = specToEvaluate(BASE_OPERATORS[opName]!)
   }
 
   // decorators were unshifted (innermost first); apply in array order so the
   // leftmost decorator in the name ends up outermost.
   for (let i = 0; i < decorators.length; i++) {
-    evaluate = decorate(decorators[i], evaluate)
+    evaluate = decorate(decorators[i]!, evaluate)
   }
 
   return evaluate
 }
 
-export const KNOWN_OPERATORS = Object.keys(BASE_OPERATORS)
-export const KNOWN_DECORATORS = Object.keys(DECORATORS)
+/** The built-in base operator names — useful for validating rule documents before compiling. Frozen. */
+export const KNOWN_OPERATORS: readonly string[] = Object.freeze(Object.keys(BASE_OPERATORS))
+/** The built-in operator-decorator names (someFact/someValue/everyFact/everyValue/swap/not). Frozen. */
+export const KNOWN_DECORATORS: readonly string[] = Object.freeze(Object.keys(DECORATORS))

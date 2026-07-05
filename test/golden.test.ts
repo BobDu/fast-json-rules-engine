@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { JSONPath } from 'jsonpath-plus'
-import { compile, CompileError, UndefinedFactError } from '../src/index'
+import { compile, CompileError, UndefinedFactError, KNOWN_OPERATORS, KNOWN_DECORATORS } from '../src/index'
 import { expectMatch } from './helpers'
 
 const ev = (id: string) => ({ type: id, params: { groupId: id } })
@@ -356,4 +356,41 @@ test('stopOnFirstEvent still requires all referenced facts (global pre-check)', 
   // divergence from json-rules-engine's stop() emulation (which would not throw).
   expect(() => evaluate({ x: 1 })).toThrow(UndefinedFactError)
   expect(evaluate({ x: 1, missing: 0 }).events.map((e) => e.type)).toEqual(['hit'])
+})
+
+// --- exported introspection helpers + structured error fields
+test('KNOWN_OPERATORS / KNOWN_DECORATORS list the built-ins and are frozen', () => {
+  expect([...KNOWN_OPERATORS].sort()).toEqual([
+    'contains', 'doesNotContain', 'equal', 'greaterThan', 'greaterThanInclusive',
+    'in', 'lessThan', 'lessThanInclusive', 'notEqual', 'notIn',
+  ])
+  expect([...KNOWN_DECORATORS].sort()).toEqual(['everyFact', 'everyValue', 'not', 'someFact', 'someValue', 'swap'])
+  expect(Object.isFrozen(KNOWN_OPERATORS)).toBe(true)
+  expect(Object.isFrozen(KNOWN_DECORATORS)).toBe(true)
+})
+test('UndefinedFactError exposes factId and code', () => {
+  try {
+    compile([{ conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] }, event: ev('a') }])({})
+  } catch (e) {
+    expect(e).toBeInstanceOf(UndefinedFactError)
+    expect((e as UndefinedFactError).factId).toBe('missing')
+    expect((e as UndefinedFactError).code).toBe('UNDEFINED_FACT')
+    return
+  }
+  throw new Error('expected UndefinedFactError')
+})
+test('CompileError exposes ruleIndex and code for a nested compile error', () => {
+  try {
+    compile([
+      { conditions: { all: [] }, event: ev('a') },
+      { conditions: { all: [{ fact: 'x', operator: 'nope', value: 1 }] }, event: ev('b') },
+    ])
+  } catch (e) {
+    expect(e).toBeInstanceOf(CompileError)
+    expect((e as CompileError).ruleIndex).toBe(1)
+    expect((e as CompileError).code).toBe('COMPILE_ERROR')
+    expect((e as Error).message).toContain('Rule at index 1')
+    return
+  }
+  throw new Error('expected CompileError')
 })

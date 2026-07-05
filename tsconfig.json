@@ -5,11 +5,13 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2020"],
     "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "types": ["node"]
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src"]
 }

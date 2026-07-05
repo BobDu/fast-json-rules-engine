@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>8/8</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>8/8</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
@@ -96,21 +96,13 @@
 <a name='L31'></a><a href='#L31'>31</a>
 <a name='L32'></a><a href='#L32'>32</a>
 <a name='L33'></a><a href='#L33'>33</a>
-<a name='L34'></a><a href='#L34'>34</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">276x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">276x</span>
-<span class="cline-any cline-yes">276x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">276x</span>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -119,14 +111,34 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">274x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">274x</span>
+<span class="cline-any cline-yes">274x</span>
+<span class="cline-any cline-yes">274x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">274x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">28x</span>
-<span class="cline-any cline-yes">28x</span>
-<span class="cline-any cline-yes">28x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-yes">49x</span>
+<span class="cline-any cline-yes">49x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
@@ -134,14 +146,17 @@
  * on the facts object and `allowUndefinedFacts` is false (the default).
  *
  * Mirrors json-rules-engine's UndefinedFactError so callers migrating from it
- * can catch the same failure mode.
+ * can catch the same failure mode. `factId` exposes the missing fact name
+ * programmatically (no need to parse the message).
  */
 export class UndefinedFactError extends Error {
-  code = 'UNDEFINED_FACT'
+  readonly code = 'UNDEFINED_FACT'
+  readonly factId: string
 &nbsp;
   constructor(factId: string) {
     super(`Undefined fact: ${factId}`)
     this.name = 'UndefinedFactError'
+    this.factId = factId
     // Restore prototype chain for instanceof across the TS -&gt; ES2020 downlevel.
     Object.setPrototypeOf(this, UndefinedFactError.prototype)
   }
@@ -151,14 +166,17 @@ export class UndefinedFactError extends Error {
  * Thrown at compile time when a rule set cannot be turned into an evaluator:
  * unknown operator, malformed condition, unsupported jsonpath, missing named
  * condition, or a condition-reference cycle. Compiling eagerly surfaces these
- * as loud failures instead of silent wrong answers at runtime.
+ * as loud failures instead of silent wrong answers at runtime. `ruleIndex`, when
+ * set, is the index of the offending rule in the array passed to `compile`.
  */
 export class CompileError extends Error {
-  code = 'COMPILE_ERROR'
+  readonly code = 'COMPILE_ERROR'
+  readonly ruleIndex?: number
 &nbsp;
-  constructor(message: string) {
+  constructor(message: string, options?: { ruleIndex?: number }) {
     super(message)
     this.name = 'CompileError'
+    if (options?.ruleIndex !== undefined) this.ruleIndex = options.ruleIndex
     Object.setPrototypeOf(this, CompileError.prototype)
   }
 }
@@ -169,7 +187,7 @@ export class CompileError extends Error {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-05T07:01:40.567Z
+                at 2026-07-05T07:09:00.514Z
             </div>
         <script src="prettify.js"></script>
         <script>

@@ -277,7 +277,7 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
     // BOTH all and any (prioritizeAndRun returns true when length === 0).
     if (len === 0) return () => true
     return (facts) => {
-      for (let i = 0; i < len; i++) if (subs[i](facts)) return true
+      for (let i = 0; i < len; i++) if (subs[i]!(facts)) return true
       return false
     }
   }
@@ -288,7 +288,7 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
     const subs = arr.map((c) => compileCondition(c, ctx, stack))
     const len = subs.length
     return (facts) => {
-      for (let i = 0; i < len; i++) if (!subs[i](facts)) return false
+      for (let i = 0; i < len; i++) if (!subs[i]!(facts)) return false
       return true
     }
   }
@@ -318,7 +318,7 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
       throw new CompileError(`Circular condition reference: "${name}"`)
     }
     stack.add(name)
-    const compiled = compileCondition(ctx.conditions[name], ctx, stack)
+    const compiled = compileCondition(ctx.conditions[name]!, ctx, stack)
     stack.delete(name)
     ctx.condPredMemo.set(name, compiled)
     return compiled
@@ -368,7 +368,7 @@ export function compile(
   const allRequired = new Set<string>()
   const compiled: CompiledRule[] = ruleList.map((rule, index) => {
     if (rule === null || typeof rule !== 'object' || !hasOwn(rule, 'conditions')) {
-      throw new CompileError(`Rule at index ${index} is missing "conditions"`)
+      throw new CompileError(`Rule at index ${index} is missing "conditions"`, { ruleIndex: index })
     }
     if (
       !hasOwn(rule, 'event') ||
@@ -376,36 +376,27 @@ export function compile(
       typeof rule.event !== 'object' ||
       Array.isArray(rule.event)
     ) {
-      throw new CompileError(`Rule at index ${index} is missing a valid "event"`)
+      throw new CompileError(`Rule at index ${index} is missing a valid "event"`, { ruleIndex: index })
     }
     if (!hasOwn(rule.event as object, 'type')) {
-      throw new CompileError(`Rule at index ${index}: "event" requires a "type" property`)
+      throw new CompileError(`Rule at index ${index}: "event" requires a "type" property`, { ruleIndex: index })
     }
     if (!hasBooleanRoot(rule.conditions)) {
       throw new CompileError(
         `Rule at index ${index}: "conditions" root must contain a single instance of ` +
           `"all", "any", "not", or "condition"`,
+        { ruleIndex: index },
       )
     }
-    // Bound the fully-expanded (named-condition-inlined) depth up front, so the
-    // eval-time closure stack can never overflow even through memoized references.
-    assertDepth(rule.conditions, ctx, new Set<string>(), 0)
-    // Undefined-fact pre-check is GLOBAL (union across all rules), not per-rule:
-    // json-rules-engine evaluates every rule (no engine.stop by default) and
-    // rejects if any referenced fact is absent, so a rule set referencing a
-    // missing fact fails loud regardless of short-circuit OR stopOnFirstEvent —
-    // closing the hole where an early match swallowed a sibling's UndefinedFactError.
-    if (!ctx.allowUndefinedFacts) {
-      collectFacts(rule.conditions, ctx, allRequired, new Set<string>())
-    }
-    // Match json-rules-engine's setPriority: (priority || 1), parseInt, and
-    // reject <= 0 (so negatives and fractions in (-1,1) throw; 2.9 -> 2). Unlike
-    // upstream (which stores NaN for an unparseable priority and runs anyway), an
+    // Match json-rules-engine's setPriority: (priority || 1), parseInt, and reject
+    // <= 0 (so negatives and fractions in (-1,1) throw; 2.9 -> 2). Unlike upstream
+    // (which stores NaN for an unparseable priority and runs anyway), an
     // unparseable priority throws here — a deliberate fail-loud divergence.
     const priority = parseInt(String(rule.priority || 1), 10)
     if (!(priority > 0)) {
       throw new CompileError(
         `Rule at index ${index}: priority must parse to a positive integer (got ${JSON.stringify(rule.priority)})`,
+        { ruleIndex: index },
       )
     }
     // Normalize the event to json-rules-engine's shape ONCE here (not per eval —
@@ -420,8 +411,21 @@ export function compile(
     // params may be any value (json-rules-engine keeps it verbatim); the Event
     // type models the common object case, so cast at this one assignment.
     if (src.params) event.params = src.params as Record<string, unknown>
+    // assertDepth bounds the fully-expanded (named-condition-inlined) depth so the
+    // eval-time closure stack can't overflow through memoized references; the
+    // GLOBAL undefined-fact pre-check (union across all rules) makes a missing fact
+    // fail loud regardless of short-circuit or stopOnFirstEvent. These and the
+    // compiler throw CompileErrors without a rule index, so tag them with one here.
+    let predicate: Predicate
+    try {
+      assertDepth(rule.conditions, ctx, new Set<string>(), 0)
+      if (!ctx.allowUndefinedFacts) collectFacts(rule.conditions, ctx, allRequired, new Set<string>())
+      predicate = compileCondition(rule.conditions, ctx, new Set<string>())
+    } catch (e) {
+      throw new CompileError(`Rule at index ${index}: ${(e as Error).message}`, { ruleIndex: index })
+    }
     return {
-      predicate: compileCondition(rule.conditions, ctx, new Set<string>()),
+      predicate,
       event,
       priority,
       // Match json-rules-engine: a falsy rule name (e.g. "") is treated as no name.
@@ -449,7 +453,7 @@ export function compile(
     // hide it. Skipped when allowUndefinedFacts is true.
     if (!allowUndefinedFacts) {
       for (let k = 0; k < requiredCount; k++) {
-        if (!hasOwn(facts, requiredFacts[k])) throw new UndefinedFactError(requiredFacts[k])
+        if (!hasOwn(facts, requiredFacts[k]!)) throw new UndefinedFactError(requiredFacts[k]!)
       }
     }
 
@@ -459,7 +463,7 @@ export function compile(
     const failureResults: RuleResult[] = []
 
     for (let i = 0; i < count; i++) {
-      const rule = order[i]
+      const rule = order[i]!
       const matched = rule.predicate(facts)
       const result: RuleResult = {
         result: matched,
