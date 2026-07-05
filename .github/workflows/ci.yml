@@ -61,3 +61,19 @@ jobs:
           name: dist
           path: dist
       - run: node test/smoke-node14.js
+      - run: node test/smoke-node14.mjs
+
+  # Layer 2 — the built artifact must behave identically to the source: a
+  # fast-check differential of dist CJS/ESM vs the TS source, plus type-export
+  # correctness (arethetypeswrong). Runs on one modern Node; it tests the build,
+  # not the runtime range (dist-smoke covers that).
+  dist-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:dist
