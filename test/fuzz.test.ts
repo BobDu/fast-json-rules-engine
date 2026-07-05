@@ -1,7 +1,7 @@
 import fc from 'fast-check'
 import { test } from '@fast-check/vitest'
 import { agrees } from './helpers'
-import { rulesTied, rulesDistinct, facts, CUSTOM_OPS, jp } from './arbitraries'
+import { rulesTied, rulesDistinct, rulesWithRefTied, namedConditions, facts, CUSTOM_OPS, jp } from './arbitraries'
 
 // Differential property tests: for any generated rule set + facts, our compiled
 // output must equal json-rules-engine 6.6.0. fast-check supplies edge values
@@ -24,6 +24,17 @@ test.prop([rulesDistinct, facts])(
       rules as never,
       f,
       { stopOnFirstEvent: true, allowUndefinedFacts: true, operators: CUSTOM_OPS, pathResolver: jp },
+      { orderInsensitive: true },
+    ),
+)
+
+test.prop([rulesWithRefTied, namedConditions, facts, fc.boolean()])(
+  'named conditions: compiled output equals json-rules-engine',
+  (rules, conditions, f, allowUndefinedFacts) =>
+    agrees(
+      rules as never,
+      f,
+      { allowUndefinedFacts, conditions: conditions as never, operators: CUSTOM_OPS, pathResolver: jp },
       { orderInsensitive: true },
     ),
 )

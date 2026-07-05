@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
 import { compile as compileSrc } from '../src/index'
 import type { CompileOptions, RuleDefinition, Facts } from '../src/index'
-import { rulesTied, rulesDistinct, facts, CUSTOM_OPS, jp } from './arbitraries'
+import { rulesTied, rulesDistinct, rulesWithRefTied, namedConditions, facts, CUSTOM_OPS, jp } from './arbitraries'
 
 // Layer 2 contract: the SHIPPED artifact (dist CJS + ESM) must behave identically
 // to the TypeScript source for the same rules/facts. The fuzz suite proves the
@@ -69,6 +69,16 @@ test.prop([rulesDistinct, facts])(
     expectDistMatchesSrc(
       rules as RuleDefinition[],
       { stopOnFirstEvent: true, allowUndefinedFacts: true, operators: CUSTOM_OPS, pathResolver: jp },
+      f,
+    ),
+)
+
+test.prop([rulesWithRefTied, namedConditions, facts, fc.boolean()])(
+  'dist (cjs & esm) equal the source: named conditions',
+  (rules, conditions, f, allowUndefinedFacts) =>
+    expectDistMatchesSrc(
+      rules as RuleDefinition[],
+      { allowUndefinedFacts, conditions: conditions as never, operators: CUSTOM_OPS, pathResolver: jp },
       f,
     ),
 )
