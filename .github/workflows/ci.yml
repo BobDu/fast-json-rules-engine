@@ -27,19 +27,16 @@ jobs:
           path: dist
 
   # Layer 1 — business logic against the TypeScript source (vitest + fast-check).
-  # vitest 4 / rolldown require Node >= 20 to run; older-Node runtime compat is
-  # covered by the dist-smoke job below (logic correctness is Node-version agnostic).
+  # Logic correctness is Node-version agnostic, so a single modern Node suffices
+  # here (vitest 4 / rolldown also require Node >= 20); runtime compatibility for
+  # the whole engines range is the dist-smoke job's job.
   test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [20, 22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test
