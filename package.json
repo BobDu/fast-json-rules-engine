@@ -51,10 +51,13 @@
     "lint": "eslint src",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:dist": "npm run build && node test/smoke-node14.js",
+    "test:contract": "npm run build && node test/smoke-node14.js && node test/smoke-node14.mjs && vitest run --config vitest.dist.config.ts",
+    "test:types": "attw --pack .",
+    "test:dist": "npm run test:contract && npm run test:types",
     "bench": "npm run build && node bench/bench.mjs"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.4",
     "@fast-check/vitest": "^0.4.1",
     "@types/node": "^20",
     "@vitest/coverage-v8": "^4.1.9",
