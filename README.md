@@ -5,15 +5,17 @@
 A compiled, **synchronous**, **zero-dependency** rules engine that speaks the
 [json-rules-engine](https://github.com/CacheControl/json-rules-engine) rule
 format. Compile a rule set once into plain predicate functions, then evaluate
-many facts objects — **~140× faster** than json-rules-engine on a typical rule
-set, and over **1000× faster** for first-match lookups.
+many facts objects — **~190× faster** than json-rules-engine on a typical rule
+set, and **~190× faster than its own `engine.stop()` first-match pattern**
+(≈590× vs a full run) for first-match lookups.
 
 It trades away runtime dynamism (async facts, event handlers, the evaluated
 conditions tree, live rule mutation) for speed. If your facts are plain values
 and you evaluate the same rules over and over, that trade is usually free.
 
 > **Status:** pre-1.0. The rule evaluation is verified against json-rules-engine
-> 6.6.0 by differential fuzzing (tens of thousands of randomized cases per run),
+> 6.6.0 by differential fuzzing (thousands of randomized cases per run, tens of
+> thousands in CI),
 > but the API may still change before 1.0.
 
 This is an independent project and is **not affiliated with** json-rules-engine
@@ -141,8 +143,8 @@ pass the one-liner above — nothing else in your rules changes.
 ## Compatibility
 
 fast-json-rules-engine is a **drop-in replacement, not a reimplementation**. Any
-json-rules-engine rule document compiles unchanged and produces identical
-`events`. What it deliberately does *not* replicate is json-rules-engine's
+json-rules-engine rule document compiles unchanged and produces the same
+`events` (identical across priorities; within a tied priority, see [Semantics](#semantics)). What it deliberately does *not* replicate is json-rules-engine's
 runtime dynamism — async facts, event handlers, the evaluated-conditions result
 tree, runtime rule mutation — which is exactly what makes it slow per run. Each
 feature is kept or dropped by weighing compatibility value against implementation
@@ -191,21 +193,34 @@ applies only to non-null object fact values. Returned events are normalized to
 `{ type, params? }` (falsy `params` and any other keys dropped), matching
 json-rules-engine's `setEvent`. Named conditions are inlined and share one
 compiled predicate per name — evaluated once per reference but not cached across
-facts, so keep the expanded condition graph reasonably sized.
+facts, so keep the expanded condition graph reasonably sized. Across different
+priorities, event order matches json-rules-engine exactly; within a *tied*
+priority this library preserves rule-definition order, whereas json-rules-engine's
+tied order follows promise resolution (condition-tree depth) — both deterministic,
+but they can differ when rules share a priority. (6.6.0 is the differential oracle
+because the rule-format semantics are unchanged through json-rules-engine 7.x —
+the 7.0 major was a Node 18 / jsonpath-plus bump, not an engine change — and 6.6.0
+runs on the same Node range this library supports.)
 
 ## Benchmarks
 
-30 rules, each a flat `all` of 2–4 comparisons with distinct priorities, one
-match — the shape of a typical segmentation/tiering config. Run it yourself with
+30 rules, each a flat `all` of 2–4 comparisons with distinct priorities,
+evaluated against a pool of facts objects (the sample matches 7 of 30 rules) —
+the shape of a typical segmentation/tiering config. Run it yourself with
 `npm run bench`.
 
-| Variant | µs / eval | vs json-rules-engine |
+| Variant | µs / eval | vs full run |
 | --- | --- | --- |
-| json-rules-engine (reused engine) | 377.7 | 1× |
-| json-rules-engine (new Engine + addRule per eval) | 498.9 | 0.8× |
-| **fast-json-rules-engine — compile per eval** | 21.9 | **17×** |
-| **fast-json-rules-engine — compiled once** | 2.68 | **141×** |
-| **fast-json-rules-engine — compiled once + `stopOnFirstEvent`** | 0.33 | **1153×** |
+| json-rules-engine — reused engine, full run | 369.5 | 1× |
+| json-rules-engine — new Engine + addRule per eval | 496.2 | 0.7× |
+| json-rules-engine — reused engine, first-match via `engine.stop()` | 120.0 | 3.1× |
+| **fast-json-rules-engine — compile per eval** | 29.1 | **13×** |
+| **fast-json-rules-engine — compiled once** | 1.95 | **189×** |
+| **fast-json-rules-engine — compiled once + `stopOnFirstEvent`** | 0.63 | **590×** |
+
+For a fair first-match comparison, put the two early-exit modes side by side:
+fast-json-rules-engine's `stopOnFirstEvent` (0.63 µs) is **~190× faster** than
+json-rules-engine's own `engine.stop()`-on-first-success pattern (120.0 µs).
 
 _Node 24; numbers vary by machine and rule shape. The point is the order of
 magnitude: json-rules-engine's per-run cost (a deep clone of every rule's
@@ -230,6 +245,13 @@ translated **once** into a sorted array of predicate closures (operators become
 direct comparisons, `in`/`notIn` value arrays are captured, nested booleans
 become short-circuiting loops). Evaluation is then a plain synchronous walk with
 no per-run allocation of promises, almanacs, or cloned condition trees.
+
+## Credits
+
+The rule format, operator/decorator semantics, and error messages are
+reimplemented from [json-rules-engine](https://github.com/CacheControl/json-rules-engine)
+by Cache Hamm / CacheControl (ISC License). This is an independent, unaffiliated
+project; any behavioral divergences are its own.
 
 ## License
 
