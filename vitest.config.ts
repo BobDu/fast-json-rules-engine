@@ -11,8 +11,9 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.ts'],
       reporter: ['text', 'html'],
-      // Raised toward 100 once the suite is migrated; keeps a floor meanwhile.
-      thresholds: { lines: 90, functions: 90, branches: 85, statements: 90 },
+      // src is fully covered; lock at 100. Intentionally-unreachable code is
+      // marked `/* v8 ignore */`, so any drop means a real untested branch.
+      thresholds: { lines: 100, functions: 100, branches: 100, statements: 100 },
     },
   },
 })

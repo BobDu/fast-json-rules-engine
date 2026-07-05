@@ -39,7 +39,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm run test:coverage
 
   # Layer 2 — verify the shipped artifact loads and runs across the whole engines
   # range (Node 14+), including the versions vitest can't run on. No deps: the

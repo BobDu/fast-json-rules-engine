@@ -195,3 +195,37 @@ test('fan-out named conditions compile without exponential blow-up', () => {
   for (let i = 1; i < 40; i++) conditions['c' + i] = { all: [{ condition: 'c' + (i - 1) }, { condition: 'c' + (i - 1) }] }
   expect(() => compile([{ conditions: { all: [{ condition: 'c39' }] }, event: ev('a') }], { conditions: conditions as never })).not.toThrow()
 })
+
+// --- guard coverage: every malformed-input branch fails loud at compile time.
+// These assert the fail-loud surface directly (differential fuzz uses only
+// well-formed input, so these branches need explicit coverage).
+const cErr = (rules: unknown, opts?: Parameters<typeof compile>[1]) =>
+  expect(() => compile(rules as never, opts)).toThrow(CompileError)
+const badCond = (conditions: unknown, opts?: Parameters<typeof compile>[1]) => cErr([{ conditions, event: ev('a') }], opts)
+
+test('non-object nested condition throws', () => badCond({ all: [5] }))
+test('"any" that is not an array throws', () => badCond({ any: 'nope' }))
+test('"all" that is not an array throws', () => badCond({ all: 'nope' }))
+test('leaf missing "fact" throws', () => badCond({ all: [{ operator: 'equal', value: 1 }] }))
+test('leaf missing "operator" throws', () => badCond({ all: [{ fact: 'x', value: 1 }] }))
+test('"condition" reference that is not a string throws', () => badCond({ condition: 123 }))
+test('unknown named condition throws', () => badCond({ condition: 'nope' }))
+test('unknown operator decorator throws', () => badCond({ all: [{ fact: 'x', operator: 'bogus:equal', value: 1 }] }))
+test('named condition with a non-boolean root throws', () =>
+  badCond({ condition: 'leaf' }, { conditions: { leaf: { fact: 'x', operator: 'equal', value: 1 } as never } }))
+test('rule missing "conditions" throws', () => cErr([{ event: ev('a') }]))
+test('rule missing "event" throws', () => cErr([{ conditions: { all: [] } }]))
+test('rule "event" as an array throws', () => cErr([{ conditions: { all: [] }, event: [] }]))
+test('rule "event" as null throws', () => cErr([{ conditions: { all: [] }, event: null }]))
+test('deep nesting also fails loud in compileCondition (allowUndefinedFacts skips the collectFacts guard)', () => {
+  let d: unknown = { all: [{ fact: 'x', operator: 'equal', value: 1 }] }
+  for (let i = 0; i < 20000; i++) d = { all: [d] }
+  cErr([{ conditions: d, event: ev('a') }], { allowUndefinedFacts: true })
+})
+
+// --- compile accepts a single rule object, not just an array
+test('a single rule (not wrapped in an array) compiles and evaluates', () => {
+  const evaluate = compile({ conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('a') })
+  expect(evaluate({ x: 1 }).events.map((e) => e.type)).toEqual(['a'])
+  expect(evaluate({ x: 2 }).events).toEqual([])
+})

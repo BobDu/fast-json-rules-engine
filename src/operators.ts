@@ -16,6 +16,10 @@ interface OperatorSpec {
   validator: (a: any) => boolean
 }
 
+// Sentinel validator: specs whose validator IS `alwaysValid` skip the validator
+// layer entirely (compared by reference when building the evaluator), so this
+// body never actually runs — it exists only as an identity to branch on.
+/* v8 ignore next */
 const alwaysValid = (): boolean => true
 
 // json-rules-engine numberValidator: Number.parseFloat(x).toString() !== 'NaN'
