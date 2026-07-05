@@ -48,8 +48,9 @@
     "build": "tsdown src/index.ts --format cjs,esm --dts --sourcemap --clean --platform node --target node14",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "pretest": "npm run build",
-    "test": "node test/run.js",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:dist": "npm run build && node test/smoke-node14.js",
     "bench": "npm run build && node bench/bench.mjs"
   },
   "devDependencies": {
