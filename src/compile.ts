@@ -271,8 +271,6 @@ interface CompiledRule {
   event: RuleDefinition['event']
   priority: number
   name?: string
-  /** Facts that must be present (only populated when allowUndefinedFacts is false). */
-  requiredFacts: string[]
 }
 
 /**
@@ -295,6 +293,7 @@ export function compile(
     conditionFactMemo: new Map(),
   }
 
+  const allRequired = new Set<string>()
   const compiled: CompiledRule[] = ruleList.map((rule, index) => {
     if (rule === null || typeof rule !== 'object' || !('conditions' in rule)) {
       throw new CompileError(`Rule at index ${index} is missing "conditions"`)
@@ -316,11 +315,13 @@ export function compile(
           `"all", "any", "not", or "condition"`,
       )
     }
-    let requiredFacts: string[] = []
+    // Undefined-fact pre-check is GLOBAL (union across all rules), not per-rule:
+    // json-rules-engine evaluates every rule (no engine.stop by default) and
+    // rejects if any referenced fact is absent, so a rule set referencing a
+    // missing fact fails loud regardless of short-circuit OR stopOnFirstEvent —
+    // closing the hole where an early match swallowed a sibling's UndefinedFactError.
     if (!ctx.allowUndefinedFacts) {
-      const acc = new Set<string>()
-      collectFacts(rule.conditions, ctx, acc, new Set<string>(), 0)
-      requiredFacts = Array.from(acc)
+      collectFacts(rule.conditions, ctx, allRequired, new Set<string>(), 0)
     }
     // Match json-rules-engine's setPriority: (priority || 1), parseInt, and
     // reject <= 0 (so negatives and fractions in (-1,1) throw; 2.9 -> 2).
@@ -335,9 +336,10 @@ export function compile(
       event: rule.event,
       priority,
       name: rule.name,
-      requiredFacts,
     }
   })
+
+  const requiredFacts = Array.from(allRequired)
 
   // Stable sort by priority descending: higher-priority rules evaluate first,
   // input order preserved within a priority (Array.sort is stable on Node >=12).
@@ -349,8 +351,18 @@ export function compile(
   const stopOnFirstEvent = options.stopOnFirstEvent ?? false
   const allowUndefinedFacts = ctx.allowUndefinedFacts
   const count = order.length
+  const requiredCount = requiredFacts.length
 
   return function evaluate(facts: Facts): EngineResult {
+    // Global undefined-fact pre-check (see compile above): any absent referenced
+    // fact throws before evaluation, so short-circuit / stopOnFirstEvent cannot
+    // hide it. Skipped when allowUndefinedFacts is true.
+    if (!allowUndefinedFacts) {
+      for (let k = 0; k < requiredCount; k++) {
+        if (!hasOwn(facts, requiredFacts[k])) throw new UndefinedFactError(requiredFacts[k])
+      }
+    }
+
     const events: EngineResult['events'] = []
     const failureEvents: EngineResult['failureEvents'] = []
     const results: RuleResult[] = []
@@ -358,17 +370,6 @@ export function compile(
 
     for (let i = 0; i < count; i++) {
       const rule = order[i]
-      // Undefined-fact pre-check: json-rules-engine evaluates all conditions in
-      // a rule (no short-circuit within a priority set) and throws if any
-      // referenced fact is absent. Replicate that here so short-circuit
-      // evaluation below cannot hide it. Rules are checked in priority order and
-      // only up to a stopOnFirstEvent match, mirroring engine.stop() semantics.
-      if (!allowUndefinedFacts) {
-        const required = rule.requiredFacts
-        for (let k = 0; k < required.length; k++) {
-          if (!hasOwn(facts, required[k])) throw new UndefinedFactError(required[k])
-        }
-      }
       const matched = rule.predicate(facts)
       const result: RuleResult = {
         result: matched,
