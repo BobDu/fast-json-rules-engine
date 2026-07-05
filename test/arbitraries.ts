@@ -100,3 +100,35 @@ export const rulesTied = fc.array(
 export const rulesDistinct = fc
   .array(fc.record({ conditions: rootCond, event }), { minLength: 1, maxLength: 6 })
   .map((rs) => rs.map((r, i) => ({ ...r, priority: i + 1 })))
+
+// --- Named-condition variant (differential). A fixed pool of top-level named
+// conditions (each a boolean root, with NO cross-references → no cycles) plus
+// rules whose nodes may be a { condition } reference into the pool. Exercises the
+// named-condition compile path (predicate memoize, collectFacts following refs,
+// json-rules-engine's setCondition) — a shape the base generators never produce.
+const NAMED = ['ncA', 'ncB', 'ncC'] as const
+
+export const namedConditions = fc.record({ ncA: rootCond, ncB: rootCond, ncC: rootCond })
+
+const nodeRef = fc.record({ condition: fc.constantFrom(...NAMED) })
+const { node: nodeWithRef } = fc.letrec((tie) => ({
+  node: fc.oneof(
+    { weight: 4, arbitrary: leaf },
+    { weight: 2, arbitrary: nodeRef },
+    { weight: 1, arbitrary: fc.record({ all: fc.array(tie('node'), { maxLength: 4 }) }) },
+    { weight: 1, arbitrary: fc.record({ any: fc.array(tie('node'), { maxLength: 4 }) }) },
+    { weight: 1, arbitrary: fc.record({ not: tie('node') }) },
+  ),
+})) as { node: fc.Arbitrary<unknown> }
+
+const rootCondWithRef = fc.oneof(
+  fc.record({ all: fc.array(nodeWithRef, { maxLength: 4 }) }),
+  fc.record({ any: fc.array(nodeWithRef, { maxLength: 4 }) }),
+  fc.record({ not: nodeWithRef }),
+  ...NAMED.map((n) => fc.constant({ condition: n })),
+)
+
+export const rulesWithRefTied = fc.array(
+  fc.record({ conditions: rootCondWithRef, event, priority: fc.integer({ min: 1, max: 5 }) }),
+  { minLength: 1, maxLength: 6 },
+)
