@@ -1,6 +1,6 @@
 {
   "name": "fast-json-rules-engine",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Fast, compiled, zero-dependency rules engine compatible with the json-rules-engine JSON rule format",
   "keywords": [
     "rules",
@@ -10,7 +10,10 @@
     "rule",
     "engine",
     "compiler",
-    "fast"
+    "fast",
+    "business-rules",
+    "zero-dependency",
+    "json"
   ],
   "license": "MIT",
   "author": "BobDu <i@bobdu.cc>",
@@ -39,14 +42,20 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
-    "build": "tsdown src/index.ts --format cjs,esm --dts --sourcemap --clean --platform node --target node14",
+    "build": "tsdown src/index.ts --format cjs,esm --dts --clean --platform node --target node14",
     "prepack": "npm run build",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run test:dist && git diff --quiet",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run",

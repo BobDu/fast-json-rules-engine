@@ -4,6 +4,8 @@ import { expect } from 'vitest'
 import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
+import { readFileSync } from 'node:fs'
+import { test as vitest } from 'vitest'
 import { compile as compileSrc } from '../src/index'
 import type { CompileOptions, RuleDefinition, Facts } from '../src/index'
 import { rulesTied, rulesDistinct, rulesWithRefTied, namedConditions, facts, CUSTOM_OPS, jp } from './arbitraries'
@@ -82,3 +84,12 @@ test.prop([rulesWithRefTied, namedConditions, facts, fc.boolean()])(
       f,
     ),
 )
+
+// Regression guard: shipped files must not reference a sourcemap that isn't
+// emitted (we build without sourcemaps; a stray sourceMappingURL would dangle).
+vitest('shipped dist files reference no non-existent sourcemap', () => {
+  for (const f of ['index.d.cts', 'index.d.mts', 'index.cjs', 'index.mjs']) {
+    const txt = readFileSync(path.resolve(here, '../dist', f), 'utf8')
+    expect(txt).not.toMatch(/sourceMappingURL/)
+  }
+})
