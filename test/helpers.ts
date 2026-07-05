@@ -9,17 +9,22 @@ import type { CompileOptions, Facts, RuleDefinition } from '../src/index'
 //
 // Events are compared as FULL objects (not reduced to { type, params }) so event
 // normalization divergences — dropped falsy params, dropped non-type/params keys,
-// and params-key presence — are caught against json-rules-engine (see B2).
+// and params-key presence — are caught against json-rules-engine (see B2). The
+// event inside results/failureResults is a SEPARATE surface, so it is compared
+// too (a regression that de-normalized result.event would otherwise be invisible).
 
 type NormEvent = Record<string, unknown>
 interface Outcome {
   threw: boolean
   events?: NormEvent[]
   failureEvents?: NormEvent[]
+  resultEvents?: NormEvent[]
+  failureResultEvents?: NormEvent[]
   error?: unknown
 }
 
 const norm = (events: unknown[]): NormEvent[] => events.map((e) => structuredClone(e) as NormEvent)
+const eventsOf = (results: Array<{ event: unknown }>): unknown[] => results.map((r) => r.event)
 
 /** Run the same rules through the real json-rules-engine, capturing throw vs output. */
 export async function referenceRun(
@@ -43,7 +48,13 @@ export async function referenceRun(
     for (const r of list) engine.addRule(structuredClone(r) as never)
     if (options.stopOnFirstEvent) engine.on('success', () => engine.stop())
     const res = await engine.run(facts)
-    return { threw: false, events: norm(res.events), failureEvents: norm(res.failureEvents) }
+    return {
+      threw: false,
+      events: norm(res.events),
+      failureEvents: norm(res.failureEvents),
+      resultEvents: norm(eventsOf(res.results as Array<{ event: unknown }>)),
+      failureResultEvents: norm(eventsOf(res.failureResults as Array<{ event: unknown }>)),
+    }
   } catch (error) {
     return { threw: true, error }
   }
@@ -56,7 +67,13 @@ function evaluateOwn(
 ): Outcome {
   try {
     const r = compile(rules, options)(facts)
-    return { threw: false, events: norm(r.events), failureEvents: norm(r.failureEvents) }
+    return {
+      threw: false,
+      events: norm(r.events),
+      failureEvents: norm(r.failureEvents),
+      resultEvents: norm(eventsOf(r.results)),
+      failureResultEvents: norm(eventsOf(r.failureResults)),
+    }
   } catch (error) {
     return { threw: true, error }
   }
@@ -89,6 +106,8 @@ export async function expectMatch(
   const pick = cmp.orderInsensitive ? sortEvents : (x: NormEvent[]) => x
   expect(pick(mine.events!)).toEqual(pick(ref.events!))
   expect(pick(mine.failureEvents!)).toEqual(pick(ref.failureEvents!))
+  expect(pick(mine.resultEvents!)).toEqual(pick(ref.resultEvents!))
+  expect(pick(mine.failureResultEvents!)).toEqual(pick(ref.failureResultEvents!))
 }
 
 /** Non-throwing variant for fast-check properties: returns true iff engines agree. */
@@ -102,8 +121,11 @@ export async function agrees(
   const mine = evaluateOwn(rules, facts, options)
   if (mine.threw || ref.threw) return mine.threw === ref.threw
   const pick = cmp.orderInsensitive ? sortEvents : (x: NormEvent[]) => x
+  const eq = (a: NormEvent[], b: NormEvent[]): boolean => JSON.stringify(a) === JSON.stringify(b)
   return (
-    JSON.stringify(pick(mine.events!)) === JSON.stringify(pick(ref.events!)) &&
-    JSON.stringify(pick(mine.failureEvents!)) === JSON.stringify(pick(ref.failureEvents!))
+    eq(pick(mine.events!), pick(ref.events!)) &&
+    eq(pick(mine.failureEvents!), pick(ref.failureEvents!)) &&
+    eq(pick(mine.resultEvents!), pick(ref.resultEvents!)) &&
+    eq(pick(mine.failureResultEvents!), pick(ref.failureResultEvents!))
   )
 }

@@ -77,7 +77,8 @@ Returned events are **normalized** to json-rules-engine's shape — `{ type, par
 with `params` present only when truthy and any other keys dropped (a rule event
 `{ type: 'x', params: null, tag: 1 }` comes back as `{ type: 'x' }`). Each event is
 a fresh object the engine owns and **reuses across evaluations**, so treat returned
-events as read-only.
+events as read-only. Its `params` is the *same* sub-object as the source rule's
+(not a per-run deep clone, unlike json-rules-engine) — so never mutate it.
 
 `Event` is generic (`Event<Params>`); `params` is `Record<string, unknown>` by
 default. Cast at the read site when you know the shape:
@@ -173,6 +174,7 @@ What it deliberately does **not** do (the runtime dynamism it trades for speed):
 | Runtime rule mutation (`addRule` after run) | Rules are compiled up front; recompile to change them. |
 | Bundled JSONPath | No path engine is shipped; `path` requires an injected `pathResolver` (see [Paths](#paths)). |
 | Sub-condition priorities | A `priority` on a nested condition (json-rules-engine's within-rule evaluation ordering) is rejected at compile time — meaningless once compiled over static facts. |
+| `replaceFactsInEventParams` | No runtime almanac to resolve `{ fact }` references inside event params; rejected at compile time. Resolve them yourself after `evaluate()`. |
 
 Unknown operators, unsupported paths, malformed conditions, and circular named
 conditions **throw `CompileError` at compile time**, not silently at runtime.

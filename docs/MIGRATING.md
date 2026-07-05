@@ -96,7 +96,7 @@ scope. Most have a simple workaround given static facts.
 | **Fact dependency** (a fact derived from other facts) | Same — derive it up front and pass it in. |
 | **Sub-condition / fact priorities** (a `priority` on a nested condition) | Not supported; rejected at compile time. Rule-level `priority` is supported. |
 | **Rule chaining via events/almanac** | Read the returned `events`, build the next `facts`, and call `evaluate` again — you orchestrate the chain explicitly. |
-| **Facts in event params** (`replaceFactsInEventParams`) | `event.params` is returned as authored; fill dynamic values yourself after reading `events`. |
+| **Facts in event params** (`replaceFactsInEventParams`) | Passing this option throws `CompileError` (no runtime almanac to resolve it). `event.params` is otherwise returned as authored — fill dynamic values yourself after reading `events`. |
 | **Event handlers** (`engine.on(...)`) | Read `events` / `failureEvents` from the result. |
 | **Custom almanac** | No almanac concept; there's nothing to customize. |
 | **Runtime rule mutation** (`addRule` after a run) | Rules are compiled up front; recompile to change them. |

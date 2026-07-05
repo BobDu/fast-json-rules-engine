@@ -284,6 +284,15 @@ export function compile(
   rules: RuleDefinition | RuleDefinition[],
   options: CompileOptions = {},
 ): CompiledRules {
+  // We have no runtime almanac, so json-rules-engine's (non-default)
+  // replaceFactsInEventParams — substituting { fact } references inside event
+  // params at run time — can't be honored. Reject it loudly rather than silently
+  // ignore the option; resolve such references after evaluate() instead.
+  if ((options as { replaceFactsInEventParams?: unknown }).replaceFactsInEventParams) {
+    throw new CompileError(
+      'options.replaceFactsInEventParams is not supported: this engine has no runtime almanac to resolve fact references inside event params. Resolve them after evaluate(), or remove the option.',
+    )
+  }
   const ruleList = Array.isArray(rules) ? rules : [rules]
   const ctx: Ctx = {
     operators: options.operators,
