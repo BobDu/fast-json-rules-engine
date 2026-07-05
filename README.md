@@ -73,6 +73,20 @@ const topTier = events[0]?.params?.tier // 'gold'
 }
 ```
 
+Returned events are **normalized** to json-rules-engine's shape — `{ type, params? }`,
+with `params` present only when truthy and any other keys dropped (a rule event
+`{ type: 'x', params: null, tag: 1 }` comes back as `{ type: 'x' }`). Each event is
+a fresh object the engine owns and **reuses across evaluations**, so treat returned
+events as read-only.
+
+`Event` is generic (`Event<Params>`); `params` is `Record<string, unknown>` by
+default. Cast at the read site when you know the shape:
+
+```ts
+import type { Event } from 'fast-json-rules-engine'
+const tier = (events[0] as Event<{ tier: string }>).params?.tier // string | undefined
+```
+
 ### First-match only
 
 If you only care about the highest-priority match (a common segmentation
@@ -171,7 +185,11 @@ Operator, decorator, and edge-case behavior is replicated from json-rules-engine
 cases: numeric operators gate on json-rules-engine's `numberValidator` (so
 `null >= 0` is `false`, not `true`); `in`/`notIn` use `indexOf` semantics (so
 `NaN` is never "in"); an empty `all` **or** `any` evaluates to `true`; and `path`
-applies only to non-null object fact values.
+applies only to non-null object fact values. Returned events are normalized to
+`{ type, params? }` (falsy `params` and any other keys dropped), matching
+json-rules-engine's `setEvent`. Named conditions are inlined and share one
+compiled predicate per name — evaluated once per reference but not cached across
+facts, so keep the expanded condition graph reasonably sized.
 
 ## Benchmarks
 

@@ -41,6 +41,12 @@ evaluate({ age: 10 }).failureEvents.map((e) => e.type) // → ['adult']
 
 Most callers only need `events`; the highest-priority match is `events[0]`.
 
+Returned events are normalized to `{ type, params? }` (params kept only when
+truthy, any other keys dropped) and are read-only — the engine reuses the same
+object across evaluations. `Event` is generic; `params` defaults to
+`Record<string, unknown>`, so cast at the read site for a known shape:
+`(events[0] as Event<{ tier: string }>).params?.tier`.
+
 ## Operators
 
 A leaf condition is `{ fact, operator, value }` — it compares `facts[fact]`
@@ -167,7 +173,10 @@ evaluate({ spend: 10, vip: true, active: false }).events.map((e) => e.type)   //
 ```
 
 Named conditions are inlined at compile time (with circular-reference detection).
-A named condition's root must also be `all`/`any`/`not`/`condition`.
+A named condition's root must also be `all`/`any`/`not`/`condition`. Each name is
+compiled once and its predicate shared across references, but results are not
+cached across facts at evaluation time — keep the expanded condition graph
+reasonably sized.
 
 ## Custom operators
 

@@ -5,6 +5,7 @@ import type {
   CompileOptions,
   Condition,
   EngineResult,
+  Event,
   Facts,
   PathResolver,
   RuleDefinition,
@@ -331,9 +332,20 @@ export function compile(
         `Rule at index ${index}: priority must parse to a positive integer (got ${JSON.stringify(rule.priority)})`,
       )
     }
+    // Normalize the event to json-rules-engine's shape ONCE here (not per eval —
+    // matching upstream's one-time setEvent, so zero hot-path cost): a fresh
+    // { type } with params attached only when truthy; falsy params and any keys
+    // other than type/params are dropped. Because this is our own fresh object,
+    // we never hand back the caller's rule.event, so a consumer mutating a
+    // returned event cannot corrupt the source rule or a later evaluation.
+    const src = rule.event as { type: string; params?: unknown }
+    const event: Event = { type: src.type }
+    // params may be any value (json-rules-engine keeps it verbatim); the Event
+    // type models the common object case, so cast at this one assignment.
+    if (src.params) event.params = src.params as Record<string, unknown>
     return {
       predicate: compileCondition(rule.conditions, ctx, new Set<string>(), 0),
-      event: rule.event,
+      event,
       priority,
       name: rule.name,
     }

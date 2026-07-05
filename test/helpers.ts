@@ -6,11 +6,12 @@ import type { CompileOptions, Facts, RuleDefinition } from '../src/index'
 // Test code runs on modern Node (vitest), so it may freely use current APIs like
 // structuredClone — which preserves NaN/Infinity/undefined that JSON clone would
 // mangle. This is why the differential oracle can faithfully feed edge values.
+//
+// Events are compared as FULL objects (not reduced to { type, params }) so event
+// normalization divergences — dropped falsy params, dropped non-type/params keys,
+// and params-key presence — are caught against json-rules-engine (see B2).
 
-interface NormEvent {
-  type: string
-  params: unknown
-}
+type NormEvent = Record<string, unknown>
 interface Outcome {
   threw: boolean
   events?: NormEvent[]
@@ -18,8 +19,7 @@ interface Outcome {
   error?: unknown
 }
 
-const norm = (events: Array<{ type: string; params?: unknown }>): NormEvent[] =>
-  events.map((e) => ({ type: e.type, params: e.params }))
+const norm = (events: unknown[]): NormEvent[] => events.map((e) => structuredClone(e) as NormEvent)
 
 /** Run the same rules through the real json-rules-engine, capturing throw vs output. */
 export async function referenceRun(
@@ -62,18 +62,14 @@ function evaluateOwn(
   }
 }
 
+const stableKey = (e: NormEvent): string => JSON.stringify(e)
 const sortEvents = (evs: NormEvent[]): NormEvent[] =>
-  [...evs].sort(
-    (a, b) =>
-      (a.type < b.type ? -1 : a.type > b.type ? 1 : 0) ||
-      (JSON.stringify(a.params) < JSON.stringify(b.params) ? -1 : 1),
-  )
+  [...evs].sort((a, b) => (stableKey(a) < stableKey(b) ? -1 : stableKey(a) > stableKey(b) ? 1 : 0))
 
 /**
  * Assert our compiled output matches json-rules-engine for the same rules/facts,
  * including "both throw". orderInsensitive compares events as a multiset (used
  * when tied priorities make within-priority order implementation-defined).
- * Returns whether the two agreed — so fuzz callers can return a boolean.
  */
 export async function expectMatch(
   rules: RuleDefinition | RuleDefinition[],
