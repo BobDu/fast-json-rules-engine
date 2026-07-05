@@ -27,12 +27,14 @@ jobs:
           path: dist
 
   # Layer 1 — business logic against the TypeScript source (vitest + fast-check).
+  # vitest 4 / rolldown require Node >= 20 to run; older-Node runtime compat is
+  # covered by the dist-smoke job below (logic correctness is Node-version agnostic).
   test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node: [18, 20, 22, 24]
+        node: [20, 22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,16 +44,21 @@ jobs:
       - run: npm ci
       - run: npm test
 
-  # Layer 2 — verify the shipped artifact loads and runs on the oldest supported
-  # Node (14). No deps: the smoke test only loads dist and exercises compile.
-  compat-node14:
+  # Layer 2 — verify the shipped artifact loads and runs across the whole engines
+  # range (Node 14+), including the versions vitest can't run on. No deps: the
+  # smoke test only loads dist and exercises compile.
+  dist-smoke:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [14, 16, 18, 20, 22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 14
+          node-version: ${{ matrix.node }}
       - uses: actions/download-artifact@v4
         with:
           name: dist
