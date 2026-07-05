@@ -10,7 +10,7 @@ import type { CompileOptions, Facts, RuleDefinition } from '../src/index'
 //
 // All four output surfaces are compared as FULL objects against json-rules-engine:
 // events / failureEvents (whole event objects, so dropped falsy params, dropped
-// extra keys, and params-key presence are caught — see B2) AND results /
+// extra keys, and params-key presence are caught) AND results /
 // failureResults as { result, name, event } tuples (so result.name / result.result
 // and the normalized result.event are verified, not just events).
 

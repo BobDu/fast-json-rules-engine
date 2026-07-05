@@ -94,7 +94,7 @@ export const rootCond = fc.oneof(
   fc.record({ not: node }),
 )
 
-// Events exercise B2 normalization against json-rules-engine (helpers compares
+// Events exercise event normalization against json-rules-engine (helpers compares
 // FULL event objects): falsy params must be dropped (null/0/''/false/NaN),
 // truthy params kept ({} / [] / number / string / object), and any non-type/
 // params keys dropped. No { fact } inside params — we don't do event-param fact
@@ -113,7 +113,7 @@ const eventParams = fc.oneof(
 const event = fc.oneof(
   fc.record({ type: fc.string() }),
   fc.record({ type: fc.string(), params: eventParams }),
-  // extra non-type/params keys: upstream drops them, so B2 must too
+  // extra non-type/params keys: upstream drops them, so normalization must too
   fc.record({ type: fc.string(), params: eventParams, meta: fc.string(), id: fc.integer() }),
 )
 

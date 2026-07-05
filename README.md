@@ -2,6 +2,11 @@
 
 > Same rules JSON, compiled once — no promises, no clones.
 
+[![CI](https://github.com/BobDu/fast-json-rules-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/BobDu/fast-json-rules-engine/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/fast-json-rules-engine.svg)](https://www.npmjs.com/package/fast-json-rules-engine)
+[![node](https://img.shields.io/node/v/fast-json-rules-engine.svg)](https://www.npmjs.com/package/fast-json-rules-engine)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 A compiled, **synchronous**, **zero-dependency** rules engine that speaks the
 [json-rules-engine](https://github.com/CacheControl/json-rules-engine) rule
 format. Compile a rule set once into plain predicate functions, then evaluate
@@ -26,6 +31,10 @@ or its author.
 ```sh
 npm install fast-json-rules-engine
 ```
+
+Runs on **Node 14+** — including stacks that can't adopt json-rules-engine 7's
+Node 18 / ESM-only jsonpath-plus requirements. Types are bundled (needs
+TypeScript >= 4.7).
 
 ## Usage
 
@@ -245,6 +254,47 @@ translated **once** into a sorted array of predicate closures (operators become
 direct comparisons, `in`/`notIn` value arrays are captured, nested booleans
 become short-circuiting loops). Evaluation is then a plain synchronous walk with
 no per-run allocation of promises, almanacs, or cloned condition trees.
+
+## API
+
+All exports from `fast-json-rules-engine`:
+
+- **`compile(rules, options?)`** → `(facts) => { events, failureEvents, results, failureResults }`.
+  `rules` is a rule object or an array; see [Options](#options).
+- **`CompileError`** — thrown at compile time (unknown operator, malformed
+  condition, uninjected `path`, cycle, over-deep nesting). Carries
+  `code: 'COMPILE_ERROR'` and, for a rule-scoped error, `ruleIndex`.
+- **`UndefinedFactError`** — thrown at evaluate time when a referenced fact is
+  absent and `allowUndefinedFacts` is false. Carries `code: 'UNDEFINED_FACT'` and
+  `factId`.
+- **`KNOWN_OPERATORS`, `KNOWN_DECORATORS`** — frozen `readonly string[]` of the
+  built-in operator / decorator names, handy for validating rule documents before
+  compiling.
+- **Types:** `RuleDefinition`, `CompileOptions`, `CompiledRules`, `Event<Params>`,
+  `EngineResult`, `RuleResult`, `Facts`, `Condition` / `TopLevelCondition` /
+  `LeafCondition` / `AllCondition` / `AnyCondition` / `NotCondition` /
+  `ConditionReference` / `ValueReference`, `OperatorFn`, `PathResolver`.
+
+Type your rule documents with `RuleDefinition` — it's compatible with
+json-rules-engine's `RuleProperties`, so rules typed against upstream compile
+unchanged:
+
+```ts
+import { compile } from 'fast-json-rules-engine'
+import type { RuleDefinition } from 'fast-json-rules-engine'
+
+const rules: RuleDefinition[] = [/* ... */]
+const evaluate = compile(rules)
+```
+
+## Security
+
+Rules and compile options are **trusted configuration** — custom operators and
+the `pathResolver` run arbitrary code you provide, so never pass
+attacker-controlled functions. Rule JSON from semi-trusted sources is bounded at
+compile time (nesting depth is capped; named-condition fan-out is memoized), but
+treat rule documents as code. Facts are data, never evaluated. See
+[SECURITY.md](./SECURITY.md).
 
 ## Credits
 
