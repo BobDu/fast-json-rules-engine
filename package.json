@@ -60,7 +60,7 @@
     "lint": "eslint src",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:contract": "npm run build && node test/smoke-node14.js && node test/smoke-node14.mjs && vitest run --config vitest.dist.config.ts",
+    "test:contract": "npm run build && node test/dist-smoke.cjs && node test/dist-smoke.mjs && vitest run --config vitest.dist.config.ts",
     "test:types": "attw --pack .",
     "test:dist": "npm run test:contract && npm run test:types",
     "bench": "npm run build && node bench/bench.mjs"

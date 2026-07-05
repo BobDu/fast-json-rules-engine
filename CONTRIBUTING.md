@@ -29,3 +29,7 @@ PRs are welcome.
 - Coverage is gated at 100%. Genuinely unreachable code is marked
   `/* v8 ignore */` with a comment explaining why.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
+- Some facts live in more than one doc by design (the README is the npm landing
+  page and stays self-contained). If you change `path` / jsonpath-plus guidance,
+  the supported / not-supported matrix, or edge-case semantics, update README,
+  `docs/USAGE.md`, and `docs/MIGRATING.md` together.

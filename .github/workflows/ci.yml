@@ -75,8 +75,8 @@ jobs:
         with:
           name: dist
           path: dist
-      - run: node test/smoke-node14.js
-      - run: node test/smoke-node14.mjs
+      - run: node test/dist-smoke.cjs
+      - run: node test/dist-smoke.mjs
 
   # Layer 2 — the built artifact must behave identically to the source: a
   # fast-check differential of dist CJS/ESM vs the TS source, plus type-export

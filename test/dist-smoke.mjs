@@ -1,4 +1,4 @@
-// ESM counterpart to smoke-node14.js: loads the built ESM artifact and runs the
+// ESM counterpart to dist-smoke.cjs: loads the built ESM artifact and runs the
 // same checks, proving the mjs export (not just cjs) loads and evaluates on the
 // oldest supported Node. No build tools, no json-rules-engine.
 import assert from 'node:assert'
