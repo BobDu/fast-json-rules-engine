@@ -58,6 +58,11 @@ const leafBody = fc.oneof(
   fc.record({ fact: factName, operator: dec2('not', 'everyFact', CMP), value: scalar }),
   // value as a fact reference
   fc.record({ fact: factName, operator: CMP, value: fc.record({ fact: factName }) }),
+  // value as a fact reference WITH a path (reads a nested sub-value of the ref)
+  fc.record({ fact: factName, operator: CMP, value: fc.record({ fact: fc.constant('nested'), path: fc.constant('$.profile.level') }) }),
+  // custom operator under a decorator (the decorator peels down to a custom base)
+  fc.record({ fact: factName, operator: dec1('everyFact', fc.constant('divisibleBy')), value: fc.integer({ min: 1, max: 12 }) }),
+  fc.record({ fact: factName, operator: dec1('someFact', fc.constant('startsWith')), value: fc.string() }),
 )
 
 const leaf = fc.oneof(
