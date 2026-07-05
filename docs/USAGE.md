@@ -43,7 +43,8 @@ Most callers only need `events`; the highest-priority match is `events[0]`.
 
 Returned events are normalized to `{ type, params? }` (params kept only when
 truthy, any other keys dropped) and are read-only — the engine reuses the same
-object across evaluations. `Event` is generic; `params` defaults to
+object across evaluations, and `params` is the source rule's sub-object (not a
+per-run clone). `Event` is generic; `params` defaults to
 `Record<string, unknown>`, so cast at the read site for a known shape:
 `(events[0] as Event<{ tier: string }>).params?.tier`.
 

@@ -17,6 +17,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Returned events are normalized to json-rules-engine's `{ type, params? }` shape
   (falsy `params` and non-`type`/`params` keys dropped) as fresh engine-owned
   objects, so evaluation never hands back — or lets you mutate — a caller's rule.
+- `replaceFactsInEventParams` is rejected at compile time (no runtime almanac to
+  resolve `{ fact }` references inside event params).
 - `stopOnFirstEvent` option for first-match evaluation.
 - Differential fuzzing suite checking output against json-rules-engine 6.6.0.
 - Benchmark (`npm run bench`).

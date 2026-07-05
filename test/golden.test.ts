@@ -246,13 +246,13 @@ test('returned events are normalized to exactly { type, params? }', () => {
     { conditions: { all: [] }, event: { type: 'a', params: null, extra: 1 } as never },
     { conditions: { all: [] }, event: { type: 'b', params: { tier: 'gold' }, meta: 'drop' } as never },
   ])({ x: 1 })
-  expect(out.events).toEqual([{ type: 'a' }, { type: 'b', params: { tier: 'gold' } }])
+  expect(out.events).toStrictEqual([{ type: 'a' }, { type: 'b', params: { tier: 'gold' } }])
 })
 test('returned event is our own fresh object, not the caller rule.event', () => {
   const rule = { conditions: { all: [] }, event: { type: 'a', params: { n: 1 }, extra: 'x' } }
   const out = compile([rule] as never)({ x: 1 })
   expect(out.events[0]).not.toBe(rule.event) // fresh top-level object (mutating it can't corrupt the source rule)
-  expect(out.events[0]).toEqual({ type: 'a', params: { n: 1 } }) // extra key dropped
+  expect(out.events[0]).toStrictEqual({ type: 'a', params: { n: 1 } }) // extra key dropped
 })
 
 // --- B3: named-condition fan-out DAG evaluates correctly (not just compiles)
@@ -263,3 +263,19 @@ test('named-condition fan-out DAG evaluates (runtime, not just compile)', () => 
   expect(evaluate({ x: 1 }).events.map((e) => e.type)).toEqual(['a'])
   expect(evaluate({ x: 2 }).events).toEqual([])
 })
+
+// --- B2: results/failureResults carry the same normalized event as events
+test('results/failureResults carry the same normalized event object as events', () => {
+  const out = compile([
+    { conditions: { all: [] }, event: { type: 'a', params: null, extra: 1 } as never }, // matches
+    { conditions: { all: [{ fact: 'x', operator: 'equal', value: 999 }] }, event: { type: 'b', params: { tier: 'gold' }, meta: 'drop' } as never }, // fails
+  ])({ x: 1 })
+  expect(out.results.map((r) => r.event)).toStrictEqual([{ type: 'a' }])
+  expect(out.failureResults.map((r) => r.event)).toStrictEqual([{ type: 'b', params: { tier: 'gold' } }])
+  expect(out.results[0].event).toBe(out.events[0]) // one normalized object shared across the events/results surfaces
+  expect(out.failureResults[0].event).toBe(out.failureEvents[0])
+})
+test('replaceFactsInEventParams is rejected (unsupported — no runtime almanac)', () =>
+  expect(() =>
+    compile([{ conditions: { all: [] }, event: ev('a') }], { replaceFactsInEventParams: true } as never),
+  ).toThrow(CompileError))
