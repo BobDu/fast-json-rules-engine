@@ -111,9 +111,11 @@ export type Facts = Record<string, any>
 
 /**
  * A custom operator. `factValue` is the (possibly path-resolved) fact; `value`
- * is the condition's compared value. Return whether the comparison holds.
+ * is the condition's compared value. Return whether the comparison holds. The
+ * `any` defaults are deliberate (operators accept arbitrary fact JSON, mirroring
+ * json-rules-engine's OperatorEvaluator); type the parameters when you know them.
  */
-export type OperatorFn = (factValue: any, value: any) => boolean
+export type OperatorFn<A = any, B = any> = (factValue: A, value: B) => boolean
 
 /**
  * Resolves a `path` into an object-valued fact. No JSONPath engine is bundled —
@@ -121,7 +123,7 @@ export type OperatorFn = (factValue: any, value: any) => boolean
  * jsonpath-plus for behavior identical to json-rules-engine, e.g.
  * `(value, path) => JSONPath({ path, json: value, wrap: false })`.
  */
-export type PathResolver = (value: unknown, path: string) => unknown
+export type PathResolver = (value: object, path: string) => unknown
 
 export interface CompileOptions {
   /** Additional or overriding operators, by name. */
