@@ -19,7 +19,12 @@ export interface ValueReference {
 export interface LeafCondition {
   fact: string
   operator: string
-  value: unknown | ValueReference
+  /**
+   * The compared value: a literal, or a {@link ValueReference} (`{ fact, path? }`)
+   * to compare against another fact. Typed `unknown` because `unknown | ValueReference`
+   * collapses to `unknown` anyway.
+   */
+  value: unknown
   path?: string
   params?: Record<string, unknown>
   name?: string
@@ -53,13 +58,20 @@ export type Condition =
   | ConditionReference
   | LeafCondition
 
+/**
+ * A condition valid at the ROOT of a rule (or a named condition): a boolean
+ * (all/any/not) or a condition reference. A bare leaf at the root is rejected at
+ * compile time, matching json-rules-engine — so the root type excludes LeafCondition.
+ */
+export type TopLevelCondition = AllCondition | AnyCondition | NotCondition | ConditionReference
+
 export interface Event<Params = Record<string, unknown>> {
   type: string
   params?: Params
 }
 
 export interface RuleDefinition {
-  conditions: Condition
+  conditions: TopLevelCondition
   event: Event
   /** Higher priority rules are evaluated first. Defaults to 1. */
   priority?: number
@@ -99,17 +111,18 @@ export type Facts = Record<string, unknown>
 export type OperatorFn = (factValue: any, value: any) => boolean
 
 /**
- * Resolves a `path` into a fact value. The default resolver supports simple
- * dot/bracket access (`$.a.b`, `$.a[0].b`, `$["a"]`); pass your own (e.g.
- * wrapping jsonpath-plus) for full JSONPath.
+ * Resolves a `path` into an object-valued fact. No JSONPath engine is bundled —
+ * a `path` requires this resolver, or compilation throws `CompileError`. Pass
+ * jsonpath-plus for behavior identical to json-rules-engine, e.g.
+ * `(value, path) => JSONPath({ path, json: value, wrap: false })`.
  */
 export type PathResolver = (value: unknown, path: string) => unknown
 
 export interface CompileOptions {
   /** Additional or overriding operators, by name. */
   operators?: Record<string, OperatorFn>
-  /** Named conditions referenced via `{ condition: "name" }`. */
-  conditions?: Record<string, Condition>
+  /** Named conditions referenced via `{ condition: "name" }`. Each root must be boolean/reference. */
+  conditions?: Record<string, TopLevelCondition>
   /** When false (default), an absent fact throws UndefinedFactError. */
   allowUndefinedFacts?: boolean
   /** Stop after the first (highest-priority) matching rule. Default false. */

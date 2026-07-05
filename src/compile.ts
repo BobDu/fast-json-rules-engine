@@ -18,7 +18,17 @@ interface Ctx {
   conditions?: Record<string, Condition>
   allowUndefinedFacts: boolean
   pathResolver?: PathResolver
+  // Memoize each named condition's compiled predicate and its fact set, so a name
+  // referenced N times is compiled/collected once. Without this, fan-out chains of
+  // named conditions blow up exponentially (compile-time DoS).
+  condPredMemo: Map<string, Predicate>
+  conditionFactMemo: Map<string, Set<string>>
 }
+
+// Max condition nesting depth. Bounds both compile recursion and the eval-time
+// closure call stack, so a pathologically deep tree fails loud with a
+// CompileError instead of a raw RangeError / stack overflow.
+const MAX_DEPTH = 512
 
 const hasOwn = (obj: object, key: string): boolean =>
   Object.prototype.hasOwnProperty.call(obj, key)
@@ -74,24 +84,29 @@ function pathApplier(
 /**
  * Compile a single fact read (optional path) into a closure.
  *
- * Undefined-fact throwing is NOT handled here — it is done by a per-rule
- * presence pre-check (see below), because json-rules-engine evaluates every
- * condition in a priority set (Promise.all, no short-circuit) and throws if any
- * referenced fact is absent. Doing the throw here would let our `&&`/`||`
- * short-circuit hide undefined facts that json-rules-engine surfaces. Moving it
- * to the pre-check lets us keep short-circuit while matching throw behavior.
+ * json-rules-engine builds its fact map from the facts object's OWN properties,
+ * so a fact name matching an inherited member (toString/constructor/…) is NOT a
+ * fact. When allowUndefinedFacts is true we therefore guard with hasOwn so such
+ * names read as undefined. When it's false, the per-rule presence pre-check has
+ * already asserted the fact is an own property before evaluation, so we read it
+ * directly — no second own-property check per read.
+ *
+ * (Aside: json-rules-engine skips inherited members simply because
+ * Object.prototype's members are non-enumerable and its fact map is built via
+ * for...in; hasOwn additionally excludes inherited ENUMERABLE members, a small
+ * deliberate divergence with no practical effect on plain fact objects.)
  */
 function factReader(
   factName: string,
   path: string | undefined,
   ctx: Ctx,
 ): (facts: Facts) => unknown {
-  // Own-property read: json-rules-engine builds its fact map from `for...in` +
-  // Map, so inherited members (toString/constructor/…) are NOT facts. A raw
-  // `facts[name]` would resolve those from the prototype chain; guard with hasOwn.
   const applyPath = pathApplier(path, ctx)
-  if (applyPath === null) return (facts) => (hasOwn(facts, factName) ? facts[factName] : undefined)
-  return (facts) => applyPath(hasOwn(facts, factName) ? facts[factName] : undefined)
+  const read: (facts: Facts) => unknown = ctx.allowUndefinedFacts
+    ? (facts) => (hasOwn(facts, factName) ? facts[factName] : undefined)
+    : (facts) => facts[factName]
+  if (applyPath === null) return read
+  return (facts) => applyPath(read(facts))
 }
 
 /**
@@ -99,30 +114,50 @@ function factReader(
  * and value-as-fact references, following named-condition references). Used to
  * build the undefined-fact presence pre-check.
  */
-function collectFacts(cond: unknown, ctx: Ctx, acc: Set<string>, stack: Set<string>): void {
+function collectFacts(
+  cond: unknown,
+  ctx: Ctx,
+  acc: Set<string>,
+  stack: Set<string>,
+  depth: number,
+): void {
+  // Same depth guard as compileCondition — collectFacts runs first (to build the
+  // required-facts pre-check), so without this a very deep tree would overflow
+  // the stack here before compileCondition's guard is ever reached.
+  if (depth > MAX_DEPTH) {
+    throw new CompileError(`Condition nesting exceeds the maximum supported depth (${MAX_DEPTH})`)
+  }
   if (cond === null || typeof cond !== 'object') return
   const c = cond as any
   // Key precedence must match compileCondition (any > all > not > condition) so
   // that a malformed both-all-and-any condition collects the same branch it evaluates.
   if ('any' in c) {
-    if (Array.isArray(c.any)) for (const sub of c.any) collectFacts(sub, ctx, acc, stack)
+    if (Array.isArray(c.any)) for (const sub of c.any) collectFacts(sub, ctx, acc, stack, depth + 1)
     return
   }
   if ('all' in c) {
-    if (Array.isArray(c.all)) for (const sub of c.all) collectFacts(sub, ctx, acc, stack)
+    if (Array.isArray(c.all)) for (const sub of c.all) collectFacts(sub, ctx, acc, stack, depth + 1)
     return
   }
   if ('not' in c) {
-    collectFacts(c.not, ctx, acc, stack)
+    collectFacts(c.not, ctx, acc, stack, depth + 1)
     return
   }
   if ('condition' in c) {
     const name = c.condition
     if (typeof name !== 'string' || stack.has(name)) return
-    if (ctx.conditions && Object.prototype.hasOwnProperty.call(ctx.conditions, name)) {
+    const memo = ctx.conditionFactMemo.get(name)
+    if (memo) {
+      for (const f of memo) acc.add(f)
+      return
+    }
+    if (ctx.conditions && hasOwn(ctx.conditions, name)) {
+      const sub = new Set<string>()
       stack.add(name)
-      collectFacts(ctx.conditions[name], ctx, acc, stack)
+      collectFacts(ctx.conditions[name], ctx, sub, stack, depth + 1)
       stack.delete(name)
+      ctx.conditionFactMemo.set(name, sub)
+      for (const f of sub) acc.add(f)
     }
     return
   }
@@ -157,7 +192,10 @@ function compileLeaf(cond: any, ctx: Ctx): Predicate {
   return (facts) => evaluate(readFact(facts), constant)
 }
 
-function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predicate {
+function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>, depth: number): Predicate {
+  if (depth > MAX_DEPTH) {
+    throw new CompileError(`Condition nesting exceeds the maximum supported depth (${MAX_DEPTH})`)
+  }
   if (cond === null || typeof cond !== 'object') {
     throw new CompileError(`Invalid condition: ${JSON.stringify(cond)}`)
   }
@@ -176,7 +214,7 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
   // any > all > not (> condition reference).
   if ('any' in cond) {
     if (!Array.isArray(cond.any)) throw new CompileError('"any" must be an array of conditions')
-    const subs = cond.any.map((c) => compileCondition(c, ctx, stack))
+    const subs = cond.any.map((c) => compileCondition(c, ctx, stack, depth + 1))
     const len = subs.length
     // json-rules-engine quirk: an empty conditions array evaluates to true for
     // BOTH all and any (prioritizeAndRun returns true when length === 0).
@@ -189,7 +227,7 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
 
   if ('all' in cond) {
     if (!Array.isArray(cond.all)) throw new CompileError('"all" must be an array of conditions')
-    const subs = cond.all.map((c) => compileCondition(c, ctx, stack))
+    const subs = cond.all.map((c) => compileCondition(c, ctx, stack, depth + 1))
     const len = subs.length
     return (facts) => {
       for (let i = 0; i < len; i++) if (!subs[i](facts)) return false
@@ -198,14 +236,16 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
   }
 
   if ('not' in cond) {
-    const sub = compileCondition(cond.not, ctx, stack)
+    const sub = compileCondition(cond.not, ctx, stack, depth + 1)
     return (facts) => !sub(facts)
   }
 
   if ('condition' in cond) {
     const name = cond.condition
     if (typeof name !== 'string') throw new CompileError('"condition" reference must be a string')
-    if (!ctx.conditions || !Object.prototype.hasOwnProperty.call(ctx.conditions, name)) {
+    const cached = ctx.condPredMemo.get(name)
+    if (cached) return cached
+    if (!ctx.conditions || !hasOwn(ctx.conditions, name)) {
       throw new CompileError(`Unknown named condition: "${name}" (pass it via options.conditions)`)
     }
     if (!hasBooleanRoot(ctx.conditions[name])) {
@@ -217,8 +257,9 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
       throw new CompileError(`Circular condition reference: "${name}"`)
     }
     stack.add(name)
-    const compiled = compileCondition(ctx.conditions[name], ctx, stack)
+    const compiled = compileCondition(ctx.conditions[name], ctx, stack, depth + 1)
     stack.delete(name)
+    ctx.condPredMemo.set(name, compiled)
     return compiled
   }
 
@@ -250,6 +291,8 @@ export function compile(
     conditions: options.conditions,
     allowUndefinedFacts: options.allowUndefinedFacts ?? false,
     pathResolver: options.pathResolver,
+    condPredMemo: new Map(),
+    conditionFactMemo: new Map(),
   }
 
   const compiled: CompiledRule[] = ruleList.map((rule, index) => {
@@ -276,7 +319,7 @@ export function compile(
     let requiredFacts: string[] = []
     if (!ctx.allowUndefinedFacts) {
       const acc = new Set<string>()
-      collectFacts(rule.conditions, ctx, acc, new Set<string>())
+      collectFacts(rule.conditions, ctx, acc, new Set<string>(), 0)
       requiredFacts = Array.from(acc)
     }
     // Match json-rules-engine's setPriority: (priority || 1), parseInt, and
@@ -288,7 +331,7 @@ export function compile(
       )
     }
     return {
-      predicate: compileCondition(rule.conditions, ctx, new Set<string>()),
+      predicate: compileCondition(rule.conditions, ctx, new Set<string>(), 0),
       event: rule.event,
       priority,
       name: rule.name,
