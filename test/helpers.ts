@@ -33,12 +33,11 @@ export async function referenceRun(
   options: CompileOptions = {},
 ): Promise<Outcome> {
   try {
-    const engine = new Engine(
-      [],
-      options.allowUndefinedFacts !== undefined
-        ? { allowUndefinedFacts: options.allowUndefinedFacts }
-        : {},
-    )
+    const engineOptions: Record<string, unknown> = {}
+    if (options.allowUndefinedFacts !== undefined) engineOptions.allowUndefinedFacts = options.allowUndefinedFacts
+    if (options.allowUndefinedConditions !== undefined)
+      engineOptions.allowUndefinedConditions = options.allowUndefinedConditions
+    const engine = new Engine([], engineOptions)
     if (options.operators)
       for (const [name, fn] of Object.entries(options.operators)) engine.addOperator(name, fn as never)
     if (options.conditions)

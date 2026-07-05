@@ -279,3 +279,46 @@ test('replaceFactsInEventParams is rejected (unsupported — no runtime almanac)
   expect(() =>
     compile([{ conditions: { all: [] }, event: ev('a') }], { replaceFactsInEventParams: true } as never),
   ).toThrow(CompileError))
+
+// --- a falsy path ('' / null) is ignored, matching json-rules-engine (if(path))
+test('falsy path is ignored like json-rules-engine (uses the raw fact value)', async () => {
+  for (const path of ['', null]) {
+    await expectMatch([{ conditions: { all: [{ fact: 'x', path, operator: 'equal', value: 1 }] }, event: ev('a') }], { x: 1 })
+    await expectMatch([{ conditions: { all: [{ fact: 'x', path, operator: 'equal', value: 1 }] }, event: ev('a') }], { x: 2 })
+  }
+})
+
+// --- a value fact-reference with a non-string fact throws (fail loud)
+test('non-string value fact reference throws CompileError', () =>
+  expect(() =>
+    compile([{ conditions: { all: [{ fact: 'a', operator: 'equal', value: { fact: 42 } }] }, event: ev('a') }] as never),
+  ).toThrow(CompileError))
+
+// --- allowUndefinedConditions: unknown named condition compiles to false (matches upstream)
+test('allowUndefinedConditions treats an unknown condition as false', async () => {
+  const rules = [
+    { conditions: { any: [{ condition: 'missing' }, { fact: 'x', operator: 'equal', value: 1 }] }, event: ev('a') },
+  ]
+  await expectMatch(rules, { x: 1 }, { allowUndefinedConditions: true })
+  await expectMatch(rules, { x: 2 }, { allowUndefinedConditions: true })
+})
+test('unknown named condition still throws by default', () =>
+  expect(() => compile([{ conditions: { all: [{ condition: 'missing' }] }, event: ev('a') }])).toThrow(CompileError))
+
+// --- MAX_DEPTH is total: a deep chain reached via a memoized named condition
+// fails loud at COMPILE, not with a RangeError at eval (regression guard)
+test('deep chain via a memoized named condition fails loud at compile', () => {
+  let deepBody: unknown = { all: [{ fact: 'x', operator: 'equal', value: 1 }] }
+  for (let i = 0; i < 400; i++) deepBody = { all: [deepBody] }
+  let deepRef: unknown = { condition: 'nA' }
+  for (let i = 0; i < 200; i++) deepRef = { all: [deepRef] }
+  expect(() =>
+    compile(
+      [
+        { conditions: { condition: 'nA' }, event: ev('seed') }, // seeds nA's memo at shallow depth
+        { conditions: deepRef as never, event: ev('deep') }, // memo-hits nA ~200 deep → total > MAX_DEPTH
+      ],
+      { conditions: { nA: deepBody as never } },
+    ),
+  ).toThrow(CompileError)
+})
