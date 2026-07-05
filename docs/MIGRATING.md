@@ -39,9 +39,9 @@ for (const event of events) handle(event) // read events instead of on('success'
 ```
 
 The result shape matches (`{ events, failureEvents, results, failureResults }`),
-`events` are ordered highest-priority first, and `event` objects are identical —
-so most call sites only change from `await engine.run(facts)` to
-`evaluate(facts)`.
+`events` are ordered highest-priority first, and `event` objects are normalized to
+the same `{ type, params? }` shape — so most call sites only change from
+`await engine.run(facts)` to `evaluate(facts)`.
 
 ## ✅ Works unchanged
 
@@ -109,12 +109,16 @@ purpose (fail loud rather than guess):
 
 - **Falsy `event`** (`null`/`false`/`0`/`''`) throws `CompileError` instead of
   defaulting to `{ type: 'unknown' }`.
-- **`priority`** is parsed like json-rules-engine (`|| 1`, then `parseInt`), but a
-  result `<= 0` throws instead of being stored.
+- **`priority`** is parsed like json-rules-engine (`|| 1`, then `parseInt`); a
+  parsed result `<= 0` throws in both engines, but an *unparseable* priority
+  (`parseInt` → `NaN`) throws here while json-rules-engine stores `NaN` and runs.
 - **Missing `value` on a leaf, or missing `event.type`** throws `CompileError`
   (json-rules-engine also rejects these).
-- The **emitted event is your original event object** — json-rules-engine strips
-  a falsy `params`; here it's returned as authored.
+- **Returned events are normalized** to `{ type, params? }` (falsy `params` and
+  any non-`type`/`params` keys dropped) exactly like json-rules-engine's
+  `setEvent`. The returned event is a fresh engine-owned object reused across
+  evaluations, and its `params` *aliases* the source rule (no per-run deep clone) —
+  treat returned events as read-only.
 
 Operator semantics themselves match json-rules-engine 6.6.0 exactly (verified by
 differential fuzzing), including subtle ones: `numberValidator` (so `null >= 0`
@@ -145,4 +149,5 @@ json-rules-engine's `examples/` mapped to this library:
 
 Run the same rules and facts through both engines and compare `events`. That's
 exactly how this library is tested — a differential fuzzer checks output against
-json-rules-engine 6.6.0 across tens of thousands of generated cases per run.
+json-rules-engine 6.6.0 across thousands of generated cases per run (tens of
+thousands in CI).

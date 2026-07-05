@@ -4,8 +4,14 @@
 //   npm run build && node bench/bench.mjs
 //
 // The rule set mimics the shape common in production segmentation configs:
-// ~30 rules, each a flat `all` of 2-4 comparisons, distinct priorities, first
-// (highest-priority) match wins. Facts are a ~20-field static object.
+// ~30 rules, each a flat `all` of 2-4 comparisons, distinct priorities. Facts
+// are a pool of ~20-field objects (same shape, varied values) so the compiled
+// closures' property reads stay polymorphic — closer to real traffic than
+// hammering one object, which V8 can fully monomorphize.
+//
+// json-rules-engine appears three ways: a fresh engine per eval, a reused engine
+// running to completion, and a reused engine doing first-match via engine.stop()
+// on the first success — the last is the FAIR baseline for stopOnFirstEvent.
 import { performance } from 'node:perf_hooks'
 import { compile } from '../dist/index.mjs'
 import pkg from 'json-rules-engine'
@@ -47,21 +53,28 @@ function buildRules() {
 }
 
 const rules = buildRules()
-const facts = {
-  spend: 240, level: 55, country: 'BR', daysActive: 33, platform: 'android',
-  sessions: 140, iap: 3, region: 'latam', vip: false, cohort: 'c12',
-  lang: 'pt', tz: 'America/Sao_Paulo', build: 362, retDay: 30, adRev: 12,
-  churn: 0.2, ltv: 88, refCount: 2, notif: true, ab: 'B',
+
+// Pool of facts objects (same shape, varied values) for polymorphic reads.
+function makeFacts(seed) {
+  const r = mulberry32(seed)
+  return {
+    spend: Math.floor(r() * 500), level: Math.floor(r() * 100),
+    country: COUNTRIES[Math.floor(r() * COUNTRIES.length)], daysActive: Math.floor(r() * 60),
+    platform: 'android', sessions: Math.floor(r() * 300), iap: 3, region: 'latam',
+    vip: r() < 0.5, cohort: 'c12', lang: 'pt', tz: 'America/Sao_Paulo', build: 362,
+    retDay: 30, adRev: 12, churn: 0.2, ltv: 88, refCount: 2, notif: true, ab: 'B',
+  }
 }
+const FACTS_POOL = Array.from({ length: 16 }, (_, i) => makeFacts(100 + i))
+const F = (i) => FACTS_POOL[i & 15]
 
 async function median(label, iters, runOnce, isAsync) {
   const samples = []
-  // warmup
-  for (let i = 0; i < Math.min(iters, 2000); i++) isAsync ? await runOnce() : runOnce()
+  for (let i = 0; i < Math.min(iters, 2000); i++) isAsync ? await runOnce(i) : runOnce(i)
   for (let r = 0; r < 7; r++) {
     const t0 = performance.now()
-    if (isAsync) for (let i = 0; i < iters; i++) await runOnce()
-    else for (let i = 0; i < iters; i++) runOnce()
+    if (isAsync) for (let i = 0; i < iters; i++) await runOnce(i)
+    else for (let i = 0; i < iters; i++) runOnce(i)
     samples.push(((performance.now() - t0) * 1000) / iters)
   }
   samples.sort((a, b) => a - b)
@@ -78,42 +91,49 @@ async function main() {
   const evaluate = compile(rules)
   const evaluateStop = compile(rules, { stopOnFirstEvent: true })
   const reused = makeReusedEngine()
+  const reusedStop = makeReusedEngine()
+  reusedStop.on('success', () => reusedStop.stop())
 
-  // Sanity: compiled events (priority order) match json-rules-engine.
-  const mine = evaluate(facts).events.map((e) => e.params.groupId)
-  const theirs = (await reused.run(facts)).events.map((e) => e.params.groupId)
-  if (JSON.stringify(mine) !== JSON.stringify(theirs)) {
-    console.error('MISMATCH', mine, theirs)
-    process.exit(1)
+  // Sanity: full-run events match json-rules-engine on every facts object, and
+  // first-match modes (ours vs engine.stop()) agree — so the comparison is fair.
+  for (const f of FACTS_POOL) {
+    const mine = evaluate(f).events.map((e) => e.params.groupId)
+    const theirs = (await reused.run(f)).events.map((e) => e.params.groupId)
+    if (JSON.stringify(mine) !== JSON.stringify(theirs)) { console.error('MISMATCH', mine, theirs); process.exit(1) }
   }
+  const myStop = evaluateStop(FACTS_POOL[0]).events.map((e) => e.params.groupId)
+  const theirStop = (await reusedStop.run(FACTS_POOL[0])).events.map((e) => e.params.groupId)
+  if (JSON.stringify(myStop) !== JSON.stringify(theirStop)) { console.error('STOP MISMATCH', myStop, theirStop); process.exit(1) }
+  const sampleMatches = evaluate(FACTS_POOL[0]).events.length
 
   const results = []
-  results.push(await median('json-rules-engine: new Engine + addRule + run (per eval)', 3000, async () => {
-    const e = makeReusedEngine()
-    await e.run(facts)
+  results.push(await median('json-rules-engine: new Engine + addRule + run (per eval)', 3000, async (i) => {
+    const e = makeReusedEngine(); await e.run(F(i))
   }, true))
-  results.push(await median('json-rules-engine: reused engine, run (per eval)', 5000, async () => {
-    await reused.run(facts)
+  results.push(await median('json-rules-engine: reused engine, full run', 5000, async (i) => {
+    await reused.run(F(i))
   }, true))
-  results.push(await median('fast-json-rules-engine: compile-per-eval', 20000, () => {
-    compile(rules)(facts)
+  results.push(await median('json-rules-engine: reused engine, first-match via engine.stop()', 5000, async (i) => {
+    await reusedStop.run(F(i))
+  }, true))
+  results.push(await median('fast-json-rules-engine: compile-per-eval', 20000, (i) => {
+    compile(rules)(F(i))
   }, false))
-  results.push(await median('fast-json-rules-engine: compiled once, evaluate', 200000, () => {
-    evaluate(facts)
+  results.push(await median('fast-json-rules-engine: compiled once, evaluate', 200000, (i) => {
+    evaluate(F(i))
   }, false))
-  results.push(await median('fast-json-rules-engine: compiled once, stopOnFirstEvent', 200000, () => {
-    evaluateStop(facts)
+  results.push(await median('fast-json-rules-engine: compiled once, stopOnFirstEvent', 200000, (i) => {
+    evaluateStop(F(i))
   }, false))
 
-  const base = results[1].us // reused json-rules-engine as the fair baseline
+  const base = results[1].us // reused full-run json-rules-engine as the 1x baseline
   console.log(`\nRule set: ${RULE_COUNT} rules, flat all[] of 2-4 comparisons, distinct priorities`)
+  console.log(`Facts: pool of ${FACTS_POOL.length} objects; the sample matches ${sampleMatches} of ${RULE_COUNT} rules`)
   console.log(`Node ${process.version}\n`)
   const pad = (s, n) => s + ' '.repeat(Math.max(0, n - s.length))
-  console.log(pad('variant', 58), pad('µs/eval', 12), 'vs reused')
-  console.log('-'.repeat(85))
-  for (const r of results) {
-    console.log(pad(r.label, 58), pad(r.us.toFixed(3), 12), `${(base / r.us).toFixed(1)}x`)
-  }
+  console.log(pad('variant', 62), pad('µs/eval', 12), 'vs full run')
+  console.log('-'.repeat(90))
+  for (const r of results) console.log(pad(r.label, 62), pad(r.us.toFixed(3), 12), `${(base / r.us).toFixed(1)}x`)
 }
 
 main()

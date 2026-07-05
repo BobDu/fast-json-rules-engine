@@ -16,7 +16,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   using `path` throws `CompileError` at compile time.
 - Returned events are normalized to json-rules-engine's `{ type, params? }` shape
   (falsy `params` and non-`type`/`params` keys dropped) as fresh engine-owned
-  objects, so evaluation never hands back — or lets you mutate — a caller's rule.
+  objects reused across evaluations; `params` aliases the source rule, so treat
+  returned events as read-only.
 - `replaceFactsInEventParams` is rejected at compile time (no runtime almanac to
   resolve `{ fact }` references inside event params).
 - `stopOnFirstEvent` option for first-match evaluation.
