@@ -7,20 +7,15 @@ cheatsheet plus the non-obvious internals and invariants you can't grep in 30s.
 ## What it is
 
 Compiled, synchronous, zero-dependency evaluator for the
-[json-rules-engine](https://github.com/CacheControl/json-rules-engine) JSON rule
-format: `compile(rules, options?)` turns a rule set into sorted predicate closures
-once; `evaluate(facts)` is a synchronous walk with no per-run promises, clones, or
-almanac.
-
-**Governing invariant: it is a drop-in replacement, not a reimplementation.** Any
-json-rules-engine rule document must compile unchanged and produce the same output.
-Parity is against **json-rules-engine 6.6.0** — the pinned devDependency and the
-differential-fuzz oracle. (Full pitch, API, benchmarks → README.)
+[json-rules-engine](https://github.com/CacheControl/json-rules-engine) rule format
+(what / why / API / benchmarks → README). **The invariant an agent must respect:
+it is a drop-in replacement, not a reimplementation** — any json-rules-engine rule
+document compiles unchanged and produces the same output, and parity is against
+**json-rules-engine 6.6.0**, the pinned devDependency and differential-fuzz oracle.
 
 ## Commands
 
-Build/test need **Node ≥20** (tsdown/rolldown + vitest 4); the *published* package
-runs on **Node ≥14**. `.nvmrc` pins 24.
+Build/test need **Node ≥20** (`.nvmrc` = 24); the *published* package runs on Node ≥14.
 
 - `npm test` — Layer 1: source suite + differential fuzzing (fast, build-independent)
 - `npm run test:coverage` — same, with the **100% coverage gate**
@@ -82,17 +77,13 @@ Two layers, kept separate so the fast source suite never needs a fresh build:
   artifact on the Node 14–24 matrix; the `.cjs` `require()`s the CJS artifact, the
   `.mjs` imports the ESM one).
 
-## Before committing
+## Editing src
 
-Full rules in **`CONTRIBUTING.md`**. The ones that bite mid-edit:
+The one trap not obvious from the code: **`src/` must stay within the Node-14
+runtime-API baseline** — new *syntax* is fine (tsdown down-levels it), new *runtime
+APIs* (`structuredClone`, `Object.hasOwn`, …) are not (`eslint-plugin-n` + the Node 14
+dist smoke fail on them). Test code runs on modern Node and uses them freely.
 
-- `src/` stays within the Node-14 **runtime-API** baseline — new *syntax* is fine
-  (tsdown down-levels it), new *runtime APIs* (`structuredClone`, `Object.hasOwn`, …)
-  are not (not polyfilled); `eslint-plugin-n` + the Node 14 dist smoke enforce it.
-  Test code runs on modern Node and may use current APIs freely.
-- Any change to evaluation semantics must keep the fuzzer agreeing with 6.6.0 — if
-  it diverges, either the change is wrong or it's a new intentional divergence that
-  must be pinned in `golden.test.ts` and commented.
-- Coverage is gated at 100%; genuinely unreachable code uses `/* v8 ignore */` with
-  a why.
-- Conventional Commits, signed (`git commit -s -S`).
+Everything else — full dev loop, the 100% coverage gate, doc-sync, Conventional
+Commits (`-s -S`) — is in **`CONTRIBUTING.md`**; the "keep the fuzzer agreeing"
+rule is under Parity above.
