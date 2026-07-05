@@ -17,6 +17,11 @@ test.prop([rulesTied, facts, fc.boolean()])(
     agrees(rules as never, f, { allowUndefinedFacts, operators: CUSTOM_OPS, pathResolver: jp }, { orderInsensitive: true }),
 )
 
+// stopOnFirstEvent uses DISTINCT priorities (tied + stop diverges from the oracle
+// by design) and allowUndefinedFacts:true — our global undefined-fact pre-check
+// throws before any rule, whereas the oracle's stop() emulation returns early
+// without throwing (a deliberate fail-loud divergence, pinned in golden.test.ts).
+// Both dodges are intentional, not oracle weaknesses.
 test.prop([rulesDistinct, facts])(
   'stopOnFirstEvent: compiled output equals json-rules-engine',
   (rules, f) =>

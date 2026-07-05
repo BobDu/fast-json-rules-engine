@@ -424,7 +424,8 @@ export function compile(
       predicate: compileCondition(rule.conditions, ctx, new Set<string>()),
       event,
       priority,
-      name: rule.name,
+      // Match json-rules-engine: a falsy rule name (e.g. "") is treated as no name.
+      name: rule.name || undefined,
     }
   })
 

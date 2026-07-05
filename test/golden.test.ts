@@ -1,10 +1,10 @@
 import { test, expect } from 'vitest'
 import { JSONPath } from 'jsonpath-plus'
-import { compile, CompileError } from '../src/index'
+import { compile, CompileError, UndefinedFactError } from '../src/index'
 import { expectMatch } from './helpers'
 
 const ev = (id: string) => ({ type: id, params: { groupId: id } })
-const jp = (value: unknown, path: string) => JSONPath({ path, json: value, wrap: false })
+const jp = (value: unknown, path: string) => JSONPath({ path, json: value as object, wrap: false })
 
 // --- numeric operators gate on numberValidator (null >= 0 is false, not true)
 test('numberValidator: null does not satisfy >= 0', () =>
@@ -283,8 +283,8 @@ test('replaceFactsInEventParams is rejected (unsupported — no runtime almanac)
 // --- a falsy path ('' / null) is ignored, matching json-rules-engine (if(path))
 test('falsy path is ignored like json-rules-engine (uses the raw fact value)', async () => {
   for (const path of ['', null]) {
-    await expectMatch([{ conditions: { all: [{ fact: 'x', path, operator: 'equal', value: 1 }] }, event: ev('a') }], { x: 1 })
-    await expectMatch([{ conditions: { all: [{ fact: 'x', path, operator: 'equal', value: 1 }] }, event: ev('a') }], { x: 2 })
+    await expectMatch([{ conditions: { all: [{ fact: 'x', path, operator: 'equal', value: 1 }] }, event: ev('a') }] as never, { x: 1 })
+    await expectMatch([{ conditions: { all: [{ fact: 'x', path, operator: 'equal', value: 1 }] }, event: ev('a') }] as never, { x: 2 })
   }
 })
 
@@ -321,4 +321,39 @@ test('deep chain via a memoized named condition fails loud at compile', () => {
       { conditions: { nA: deepBody as never } },
     ),
   ).toThrow(CompileError)
+})
+
+// --- result surface: result/priority/name are carried, and params aliases the source
+test('results/failureResults carry result, priority, and name', () => {
+  const out = compile([
+    { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('hit'), priority: 7, name: 'r1' },
+    { conditions: { all: [{ fact: 'x', operator: 'equal', value: 2 }] }, event: ev('miss'), priority: 3, name: 'r2' },
+  ])({ x: 1 })
+  expect(out.results).toEqual([{ result: true, event: { type: 'hit', params: { groupId: 'hit' } }, priority: 7, name: 'r1' }])
+  expect(out.failureResults).toEqual([{ result: false, event: { type: 'miss', params: { groupId: 'miss' } }, priority: 3, name: 'r2' }])
+})
+test('a falsy rule name is dropped, matching json-rules-engine', () => {
+  const out = compile([{ conditions: { all: [] }, event: ev('a'), name: '' }])({ x: 1 })
+  expect(out.results[0].name).toBeUndefined()
+})
+test('returned event params aliases the source rule (documented residual, read-only)', () => {
+  const rule = { conditions: { all: [] }, event: { type: 'a', params: { n: 1 } } }
+  const out = compile([rule])({ x: 1 })
+  expect(out.events[0].params).toBe(rule.event.params) // same sub-object — not a per-run deep clone
+})
+
+// --- stopOnFirstEvent still enforces the global undefined-fact pre-check
+test('stopOnFirstEvent still requires all referenced facts (global pre-check)', () => {
+  const evaluate = compile(
+    [
+      { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('hit'), priority: 2 },
+      { conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] }, event: ev('lo'), priority: 1 },
+    ],
+    { stopOnFirstEvent: true },
+  )
+  // The union pre-check runs before any rule, so a missing fact throws even though
+  // the higher-priority rule would match and stop first — a deliberate fail-loud
+  // divergence from json-rules-engine's stop() emulation (which would not throw).
+  expect(() => evaluate({ x: 1 })).toThrow(UndefinedFactError)
+  expect(evaluate({ x: 1, missing: 0 }).events.map((e) => e.type)).toEqual(['hit'])
 })
