@@ -96,12 +96,12 @@ const tier = evaluate(facts).events[0]?.params?.tier
 ### Paths
 
 fast-json-rules-engine does **not** bundle a JSONPath implementation — a
-condition `path` requires an injected `pathResolver`. Pass jsonpath-plus (what
-json-rules-engine uses internally) for identical behavior, including full
-JSONPath (wildcards, recursive descent, filters, slices):
+condition `path` requires an injected `pathResolver`. Pass jsonpath-plus for
+full JSONPath (wildcards, recursive descent, filters, slices) with the same
+behavior json-rules-engine gives:
 
 ```sh
-npm install jsonpath-plus
+npm install jsonpath-plus  # use >=10.4.0 — older releases have a JSONPath RCE advisory
 ```
 
 ```js

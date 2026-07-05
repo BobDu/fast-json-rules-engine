@@ -70,8 +70,8 @@ Existing rule documents compile as-is. All of these behave identically:
 | built-in `path` (jsonpath-plus) | inject it (see below) |
 
 **`path` needs an injected resolver.** The core ships zero runtime dependencies,
-so JSONPath is opt-in — pass jsonpath-plus (what json-rules-engine uses
-internally) for identical behavior:
+so JSONPath is opt-in — pass jsonpath-plus (use `jsonpath-plus@^10.4.0`; older
+releases carry a JSONPath RCE advisory) for the same behavior:
 
 ```js
 import { JSONPath } from 'jsonpath-plus'
