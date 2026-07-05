@@ -324,13 +324,21 @@ test('deep chain via a memoized named condition fails loud at compile', () => {
 })
 
 // --- result surface: result/priority/name are carried, and params aliases the source
-test('results/failureResults carry result, priority, and name', () => {
+test('results/failureResults carry result, priority, name, and ruleIndex', () => {
   const out = compile([
     { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('hit'), priority: 7, name: 'r1' },
     { conditions: { all: [{ fact: 'x', operator: 'equal', value: 2 }] }, event: ev('miss'), priority: 3, name: 'r2' },
   ])({ x: 1 })
-  expect(out.results).toEqual([{ result: true, event: { type: 'hit', params: { groupId: 'hit' } }, priority: 7, name: 'r1' }])
-  expect(out.failureResults).toEqual([{ result: false, event: { type: 'miss', params: { groupId: 'miss' } }, priority: 3, name: 'r2' }])
+  expect(out.results).toEqual([{ result: true, event: { type: 'hit', params: { groupId: 'hit' } }, priority: 7, name: 'r1', ruleIndex: 0 }])
+  expect(out.failureResults).toEqual([{ result: false, event: { type: 'miss', params: { groupId: 'miss' } }, priority: 3, name: 'r2', ruleIndex: 1 }])
+})
+test('ruleIndex is the original array index, independent of priority order', () => {
+  const out = compile([
+    { conditions: { all: [] }, event: ev('low'), priority: 1 }, // source index 0
+    { conditions: { all: [] }, event: ev('high'), priority: 9 }, // source index 1
+  ])({ x: 1 })
+  // events come back priority-sorted [high, low], but ruleIndex tracks source order
+  expect(out.results.map((r) => [r.event.type, r.ruleIndex])).toEqual([['high', 1], ['low', 0]])
 })
 test('a falsy rule name is dropped, matching json-rules-engine', () => {
   const out = compile([{ conditions: { all: [] }, event: ev('a'), name: '' }])({ x: 1 })

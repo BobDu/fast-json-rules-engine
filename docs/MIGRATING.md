@@ -43,6 +43,11 @@ The result shape matches (`{ events, failureEvents, results, failureResults }`),
 the same `{ type, params? }` shape — so most call sites only change from
 `await engine.run(facts)` to `evaluate(facts)`.
 
+Each `RuleResult` additionally carries `ruleIndex` (its position in the array you
+passed to `compile`) — an extension over json-rules-engine, handy for tracing
+which rule fired when rules are unnamed or share an event type. Giving rules a
+`name` helps too; both surface on `results` / `failureResults`.
+
 ## ✅ Works unchanged
 
 Existing rule documents compile as-is. All of these behave identically:
@@ -97,6 +102,7 @@ scope. Most have a simple workaround given static facts.
 | **Sub-condition / fact priorities** (a `priority` on a nested condition) | Not supported; rejected at compile time. Rule-level `priority` is supported. |
 | **Rule chaining via events/almanac** | Read the returned `events`, build the next `facts`, and call `evaluate` again — you orchestrate the chain explicitly. |
 | **Facts in event params** (`replaceFactsInEventParams`) | Passing this option throws `CompileError` (no runtime almanac to resolve it). `event.params` is otherwise returned as authored — fill dynamic values yourself after reading `events`. |
+| **Fact params on a condition** (`{ fact, params }`) | Only parameterize dynamic fact functions (unsupported); ignored for static facts, exactly as json-rules-engine does. |
 | **Event handlers** (`engine.on(...)`) | Read `events` / `failureEvents` from the result. |
 | **Custom almanac** | No almanac concept; there's nothing to customize. |
 | **Runtime rule mutation** (`addRule` after a run) | Rules are compiled up front; recompile to change them. |

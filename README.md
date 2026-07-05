@@ -79,7 +79,7 @@ const topTier = events[0]?.params?.tier // 'gold'
 {
   events: Event[]          // matched rules' events, priority descending
   failureEvents: Event[]   // unmatched rules' events
-  results: RuleResult[]    // { result, event, priority, name } per matched rule
+  results: RuleResult[]    // { result, event, priority, name, ruleIndex } per matched rule
   failureResults: RuleResult[]
 }
 ```

@@ -332,6 +332,7 @@ interface CompiledRule {
   event: RuleDefinition['event']
   priority: number
   name?: string
+  index: number
 }
 
 /**
@@ -430,6 +431,7 @@ export function compile(
       priority,
       // Match json-rules-engine: a falsy rule name (e.g. "") is treated as no name.
       name: rule.name || undefined,
+      index,
     }
   })
 
@@ -470,6 +472,7 @@ export function compile(
         event: rule.event,
         priority: rule.priority,
         name: rule.name,
+        ruleIndex: rule.index,
       }
       if (matched) {
         events.push(rule.event)

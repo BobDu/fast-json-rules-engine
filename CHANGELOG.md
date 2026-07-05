@@ -23,6 +23,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `stopOnFirstEvent` option for first-match evaluation.
 - `allowUndefinedConditions` option: an unknown named condition compiles to `false`
   instead of throwing (matches json-rules-engine).
+- `RuleResult.ruleIndex` (the rule's position in the input array) for tracing which
+  rule produced a result — an extension over json-rules-engine.
 - Differential fuzzing suite checking output against json-rules-engine 6.6.0.
 - Benchmark (`npm run bench`).
 

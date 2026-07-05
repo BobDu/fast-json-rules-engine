@@ -89,6 +89,12 @@ export interface RuleResult {
   event: Event
   priority: number
   name?: string
+  /**
+   * Index of this rule in the array passed to `compile` — an extension over
+   * json-rules-engine's RuleResult, for tracing which source rule produced a
+   * result (unnamed rules that share an event type are otherwise ambiguous).
+   */
+  ruleIndex: number
 }
 
 /** The outcome of evaluating a compiled rule set against one facts object. */

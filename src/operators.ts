@@ -66,6 +66,9 @@ function decorate(dec: DecoratorSpec, inner: Evaluate): Evaluate {
   return (a, b) => validator(a) && cb(a, b, inner)
 }
 
+const has = (obj: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(obj, key)
+
 /**
  * Resolve an operator name (possibly decorated, e.g. `everyFact:greaterThan`)
  * into a single evaluate function. Custom operators (from compile options)
@@ -74,9 +77,6 @@ function decorate(dec: DecoratorSpec, inner: Evaluate): Evaluate {
  * Decorators are applied so the leftmost is outermost — matching
  * json-rules-engine's OperatorMap.get (collect left-to-right, apply reversed).
  */
-const has = (obj: object, key: string): boolean =>
-  Object.prototype.hasOwnProperty.call(obj, key)
-
 export function resolveOperator(
   name: string,
   custom?: Record<string, OperatorFn>,
