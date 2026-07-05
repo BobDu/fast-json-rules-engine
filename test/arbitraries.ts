@@ -87,7 +87,28 @@ export const rootCond = fc.oneof(
   fc.record({ not: node }),
 )
 
-const event = fc.record({ type: fc.string() }) // type-only: avoids the falsy-params normalization difference (#7)
+// Events exercise B2 normalization against json-rules-engine (helpers compares
+// FULL event objects): falsy params must be dropped (null/0/''/false/NaN),
+// truthy params kept ({} / [] / number / string / object), and any non-type/
+// params keys dropped. No { fact } inside params — we don't do event-param fact
+// substitution, so avoid that shape to keep the differential apples-to-apples.
+const eventParams = fc.oneof(
+  fc.constant(null),
+  fc.constant(0),
+  fc.constant(''),
+  fc.constant(false),
+  fc.double(), // includes NaN (falsy → dropped) and finite (truthy → kept)
+  fc.string(),
+  arrayVal,
+  fc.record({ tier: fc.string(), n: fc.integer() }),
+  fc.constant({}),
+)
+const event = fc.oneof(
+  fc.record({ type: fc.string() }),
+  fc.record({ type: fc.string(), params: eventParams }),
+  // extra non-type/params keys: upstream drops them, so B2 must too
+  fc.record({ type: fc.string(), params: eventParams, meta: fc.string(), id: fc.integer() }),
+)
 
 // structuredClone normalizes fast-check's null-prototype objects to ordinary
 // ones (real facts have Object.prototype, so their values coerce via toString

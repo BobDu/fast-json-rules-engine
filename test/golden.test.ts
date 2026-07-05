@@ -229,3 +229,37 @@ test('a single rule (not wrapped in an array) compiles and evaluates', () => {
   expect(evaluate({ x: 1 }).events.map((e) => e.type)).toEqual(['a'])
   expect(evaluate({ x: 2 }).events).toEqual([])
 })
+
+// --- B2: event normalized to json-rules-engine's { type, params? } shape
+test('falsy event params are dropped (matches json-rules-engine)', async () => {
+  for (const params of [null, 0, '', false, NaN])
+    await expectMatch([{ conditions: { all: [] }, event: { type: 't', params } as never }], { x: 1 })
+})
+test('truthy event params are kept, including {} and []', async () => {
+  for (const params of [{}, [], { tier: 'gold' }, 5, 'x'])
+    await expectMatch([{ conditions: { all: [] }, event: { type: 't', params } as never }], { x: 1 })
+})
+test('non-type/params event keys are dropped (matches json-rules-engine)', () =>
+  expectMatch([{ conditions: { all: [] }, event: { type: 't', params: { a: 1 }, meta: 'x', id: 5 } as never }], { x: 1 }))
+test('returned events are normalized to exactly { type, params? }', () => {
+  const out = compile([
+    { conditions: { all: [] }, event: { type: 'a', params: null, extra: 1 } as never },
+    { conditions: { all: [] }, event: { type: 'b', params: { tier: 'gold' }, meta: 'drop' } as never },
+  ])({ x: 1 })
+  expect(out.events).toEqual([{ type: 'a' }, { type: 'b', params: { tier: 'gold' } }])
+})
+test('returned event is our own fresh object, not the caller rule.event', () => {
+  const rule = { conditions: { all: [] }, event: { type: 'a', params: { n: 1 }, extra: 'x' } }
+  const out = compile([rule] as never)({ x: 1 })
+  expect(out.events[0]).not.toBe(rule.event) // fresh top-level object (mutating it can't corrupt the source rule)
+  expect(out.events[0]).toEqual({ type: 'a', params: { n: 1 } }) // extra key dropped
+})
+
+// --- B3: named-condition fan-out DAG evaluates correctly (not just compiles)
+test('named-condition fan-out DAG evaluates (runtime, not just compile)', () => {
+  const conditions: Record<string, unknown> = { c0: { all: [{ fact: 'x', operator: 'equal', value: 1 }] } }
+  for (let i = 1; i < 12; i++) conditions['c' + i] = { all: [{ condition: 'c' + (i - 1) }, { condition: 'c' + (i - 1) }] }
+  const evaluate = compile([{ conditions: { all: [{ condition: 'c11' }] }, event: ev('a') }], { conditions: conditions as never })
+  expect(evaluate({ x: 1 }).events.map((e) => e.type)).toEqual(['a'])
+  expect(evaluate({ x: 2 }).events).toEqual([])
+})
