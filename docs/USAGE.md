@@ -204,8 +204,9 @@ produces a wrong answer.
 ## `path` (requires an injected resolver)
 
 Extract a sub-value from an object-valued fact. This library does not bundle a
-JSONPath engine (to stay zero-dependency); inject jsonpath-plus — the same
-library json-rules-engine uses internally — for identical behavior:
+JSONPath engine (to stay zero-dependency); inject jsonpath-plus (use
+`jsonpath-plus@^10.4.0` — older releases carry a JSONPath RCE advisory) for full
+JSONPath behavior:
 
 ```js
 import { compile } from 'fast-json-rules-engine'
