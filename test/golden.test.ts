@@ -135,7 +135,7 @@ test('stopOnFirstEvent returns only the highest-priority match', () => {
   expect(events[0].type).toBe('high')
 })
 
-// --- sweep-found divergences (fixed), checked against json-rules-engine
+// --- divergences found by earlier differential sweeps (now fixed vs json-rules-engine)
 test('both all and any present -> any wins', () =>
   expectMatch(
     [{ conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }], any: [{ fact: 'x', operator: 'equal', value: 2 }] }, event: ev('a') }],
@@ -184,7 +184,7 @@ test('circular named condition throws CompileError', () =>
     compile([{ conditions: { condition: 'a' }, event: ev('a') }], { conditions: { a: { all: [{ condition: 'a' }] } } }),
   ).toThrow(CompileError))
 
-// --- hardening (batch 1): deep nesting fails loud, fan-out is memoized
+// --- hardening: deep nesting fails loud, fan-out is memoized
 test('deeply nested conditions throw CompileError (not RangeError)', () => {
   let d: unknown = { fact: 'x', operator: 'equal', value: 1 }
   for (let i = 0; i < 20000; i++) d = { all: [d] }
@@ -230,7 +230,7 @@ test('a single rule (not wrapped in an array) compiles and evaluates', () => {
   expect(evaluate({ x: 2 }).events).toEqual([])
 })
 
-// --- B2: event normalized to json-rules-engine's { type, params? } shape
+// --- event normalized to json-rules-engine's { type, params? } shape
 test('falsy event params are dropped (matches json-rules-engine)', async () => {
   for (const params of [null, 0, '', false, NaN])
     await expectMatch([{ conditions: { all: [] }, event: { type: 't', params } as never }], { x: 1 })
@@ -255,7 +255,7 @@ test('returned event is our own fresh object, not the caller rule.event', () => 
   expect(out.events[0]).toStrictEqual({ type: 'a', params: { n: 1 } }) // extra key dropped
 })
 
-// --- B3: named-condition fan-out DAG evaluates correctly (not just compiles)
+// --- named-condition fan-out DAG evaluates correctly (not just compiles)
 test('named-condition fan-out DAG evaluates (runtime, not just compile)', () => {
   const conditions: Record<string, unknown> = { c0: { all: [{ fact: 'x', operator: 'equal', value: 1 }] } }
   for (let i = 1; i < 12; i++) conditions['c' + i] = { all: [{ condition: 'c' + (i - 1) }, { condition: 'c' + (i - 1) }] }
@@ -264,7 +264,7 @@ test('named-condition fan-out DAG evaluates (runtime, not just compile)', () => 
   expect(evaluate({ x: 2 }).events).toEqual([])
 })
 
-// --- B2: results/failureResults carry the same normalized event as events
+// --- results/failureResults carry the same normalized event as events
 test('results/failureResults carry the same normalized event object as events', () => {
   const out = compile([
     { conditions: { all: [] }, event: { type: 'a', params: null, extra: 1 } as never }, // matches

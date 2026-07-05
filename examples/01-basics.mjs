@@ -10,9 +10,13 @@ const rules = [
 
 const evaluate = compile(rules)
 
-console.log(evaluate({ age: 20 }))
-// { events: [ { type: 'adult', params: { tier: 'A' } } ],
-//   failureEvents: [], results: [ ... ], failureResults: [] }
+console.dir(evaluate({ age: 20 }), { depth: null })
+// {
+//   events: [ { type: 'adult', params: { tier: 'A' } } ],
+//   failureEvents: [],
+//   results: [ { result: true, event: { type: 'adult', params: { tier: 'A' } }, priority: 1, name: undefined } ],
+//   failureResults: []
+// }
 
 console.log(evaluate({ age: 10 }).events) // []
 console.log(evaluate({ age: 10 }).failureEvents.map((e) => e.type)) // [ 'adult' ]

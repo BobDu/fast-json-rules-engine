@@ -5,12 +5,21 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Lint (Node 14 API baseline) + typecheck + build once. tsdown/rolldown needs
   # Node >= 20 to build; the artifact is shared with the Node 14 compat job.
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,10 +37,12 @@ jobs:
 
   # Layer 1 — business logic against the TypeScript source (vitest + fast-check).
   # Logic correctness is Node-version agnostic, so a single modern Node suffices
-  # here (vitest 4 / rolldown also require Node >= 20); runtime compatibility for
-  # the whole engines range is the dist-smoke job's job.
+  # here (vitest 4 / rolldown also require Node >= 20). Coverage runs at the
+  # default fuzz depth (fast, gates 100%); a second step runs tens of thousands of
+  # differential cases against json-rules-engine without coverage overhead.
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,6 +51,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:coverage
+      - run: npx vitest run test/fuzz.test.ts
+        env:
+          FJRE_FUZZ_N: 10000
 
   # Layer 2 — verify the shipped artifact loads and runs across the whole engines
   # range (Node 14+), including the versions vitest can't run on. No deps: the
@@ -47,6 +61,7 @@ jobs:
   dist-smoke:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
@@ -69,6 +84,7 @@ jobs:
   # not the runtime range (dist-smoke covers that).
   dist-contract:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
