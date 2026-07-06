@@ -6,7 +6,7 @@ import type {
   EngineResult,
   Event,
   Facts,
-  RuleDefinition,
+  Rule,
   RuleResult,
 } from '../src/index'
 
@@ -15,7 +15,7 @@ import type {
 
 test('public type surface', () => {
   // compile accepts a single rule or an array, and returns a callable evaluator
-  expectTypeOf(compile).parameter(0).toEqualTypeOf<RuleDefinition | RuleDefinition[]>()
+  expectTypeOf(compile).parameter(0).toEqualTypeOf<Rule | Rule[]>()
   expectTypeOf(compile).parameter(1).toEqualTypeOf<CompileOptions | undefined>()
   expectTypeOf(compile).returns.toEqualTypeOf<CompiledRules>()
   expectTypeOf<CompiledRules>().toEqualTypeOf<(facts: Facts) => EngineResult>()

@@ -12,7 +12,7 @@ import type {
   Facts,
   NotCondition,
   PathResolver,
-  RuleDefinition,
+  Rule,
   RuleResult,
 } from './types'
 
@@ -329,7 +329,7 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
 
 interface CompiledRule {
   predicate: Predicate
-  event: RuleDefinition['event']
+  event: Rule['event']
   priority: number
   name?: string
   index: number
@@ -342,7 +342,7 @@ interface CompiledRule {
  * evaluation time.
  */
 export function compile(
-  rules: RuleDefinition | RuleDefinition[],
+  rules: Rule | Rule[],
   options: CompileOptions = {},
 ): CompiledRules {
   // We have no runtime almanac, so json-rules-engine's (non-default)

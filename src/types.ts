@@ -70,13 +70,19 @@ export interface Event<Params = Record<string, unknown>> {
   params?: Params
 }
 
-export interface RuleDefinition {
+export interface Rule {
   conditions: TopLevelCondition
   event: Event
   /** Higher priority rules are evaluated first. Defaults to 1. */
   priority?: number
   name?: string
 }
+
+/**
+ * Alias for {@link Rule} under json-rules-engine's data-shape name, so a rule set
+ * typed against upstream (`RuleProperties[]`) drops in unchanged.
+ */
+export type RuleProperties = Rule
 
 /**
  * Result for a single rule. Unlike json-rules-engine, this does NOT include the

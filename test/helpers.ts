@@ -2,7 +2,7 @@ import { Engine } from 'json-rules-engine'
 import { expect } from 'vitest'
 import { isDeepStrictEqual } from 'node:util'
 import { compile } from '../src/index'
-import type { CompileOptions, Facts, RuleDefinition } from '../src/index'
+import type { CompileOptions, Facts, Rule } from '../src/index'
 
 // Test code runs on modern Node (vitest), so it may freely use current APIs like
 // structuredClone — which preserves NaN/Infinity/undefined that JSON clone would
@@ -35,7 +35,7 @@ const normResults = (rs: Array<{ result: boolean; name?: unknown; event: unknown
 
 /** Run the same rules through the real json-rules-engine, capturing throw vs output. */
 export async function referenceRun(
-  rules: RuleDefinition | RuleDefinition[],
+  rules: Rule | Rule[],
   facts: Facts,
   options: CompileOptions = {},
 ): Promise<Outcome> {
@@ -67,7 +67,7 @@ export async function referenceRun(
 }
 
 function evaluateOwn(
-  rules: RuleDefinition | RuleDefinition[],
+  rules: Rule | Rule[],
   facts: Facts,
   options: CompileOptions,
 ): Outcome {
@@ -94,7 +94,7 @@ const sortBy = <T>(xs: T[]): T[] => [...xs].sort((a, b) => (key(a) < key(b) ? -1
  * (used when tied priorities make within-priority order implementation-defined).
  */
 export async function expectMatch(
-  rules: RuleDefinition | RuleDefinition[],
+  rules: Rule | Rule[],
   facts: Facts,
   options: CompileOptions = {},
   cmp: { orderInsensitive?: boolean } = {},
@@ -114,7 +114,7 @@ export async function expectMatch(
 
 /** Non-throwing variant for fast-check properties: returns true iff engines agree. */
 export async function agrees(
-  rules: RuleDefinition | RuleDefinition[],
+  rules: Rule | Rule[],
   facts: Facts,
   options: CompileOptions = {},
   cmp: { orderInsensitive?: boolean } = {},

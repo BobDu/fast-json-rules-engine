@@ -270,20 +270,21 @@ All exports from `fast-json-rules-engine`:
 - **`KNOWN_OPERATORS`, `KNOWN_DECORATORS`** — frozen `readonly string[]` of the
   built-in operator / decorator names, handy for validating rule documents before
   compiling.
-- **Types:** `RuleDefinition`, `CompileOptions`, `CompiledRules`, `Event<Params>`,
-  `EngineResult`, `RuleResult`, `Facts`, `Condition` / `TopLevelCondition` /
-  `LeafCondition` / `AllCondition` / `AnyCondition` / `NotCondition` /
-  `ConditionReference` / `ValueReference`, `OperatorFn`, `PathResolver`.
+- **Types:** `Rule` (also exported as `RuleProperties`), `CompileOptions`,
+  `CompiledRules`, `Event<Params>`, `EngineResult`, `RuleResult`, `Facts`,
+  `Condition` / `TopLevelCondition` / `LeafCondition` / `AllCondition` /
+  `AnyCondition` / `NotCondition` / `ConditionReference` / `ValueReference`,
+  `OperatorFn`, `PathResolver`.
 
-Type your rule documents with `RuleDefinition` — it's compatible with
-json-rules-engine's `RuleProperties`, so rules typed against upstream compile
-unchanged:
+Type your rule documents with `Rule` — also exported as `RuleProperties`
+(json-rules-engine's name for the same shape), so rules typed against upstream
+drop in unchanged:
 
 ```ts
 import { compile } from 'fast-json-rules-engine'
-import type { RuleDefinition } from 'fast-json-rules-engine'
+import type { Rule } from 'fast-json-rules-engine'
 
-const rules: RuleDefinition[] = [/* ... */]
+const rules: Rule[] = [/* ... */]
 const evaluate = compile(rules)
 ```
 

@@ -7,7 +7,7 @@ import path from 'node:path'
 import { readFileSync } from 'node:fs'
 import { test as vitest } from 'vitest'
 import { compile as compileSrc } from '../src/index'
-import type { CompileOptions, RuleDefinition, Facts } from '../src/index'
+import type { CompileOptions, Rule, Facts } from '../src/index'
 import { rulesTied, rulesDistinct, rulesWithRefTied, namedConditions, facts, CUSTOM_OPS, jp } from './arbitraries'
 
 // Layer 2 contract: the SHIPPED artifact (dist CJS + ESM) must behave identically
@@ -38,7 +38,7 @@ type Outcome =
 // throw at either compile or evaluate time — so any divergence (including "one
 // throws, the other doesn't") is caught. structuredClone isolates each engine's
 // run from mutation by the others.
-function outcome(compileFn: typeof compileSrc, rules: RuleDefinition[], opts: CompileOptions, f: Facts): Outcome {
+function outcome(compileFn: typeof compileSrc, rules: Rule[], opts: CompileOptions, f: Facts): Outcome {
   let ev: ReturnType<typeof compileSrc>
   try {
     ev = compileFn(structuredClone(rules), opts)
@@ -53,7 +53,7 @@ function outcome(compileFn: typeof compileSrc, rules: RuleDefinition[], opts: Co
   }
 }
 
-function expectDistMatchesSrc(rules: RuleDefinition[], opts: CompileOptions, f: Facts): void {
+function expectDistMatchesSrc(rules: Rule[], opts: CompileOptions, f: Facts): void {
   const src = outcome(compileSrc, rules, opts, f)
   expect(outcome(compileCjs, rules, opts, f), 'cjs vs src').toEqual(src)
   expect(outcome(compileEsm, rules, opts, f), 'esm vs src').toEqual(src)
@@ -62,14 +62,14 @@ function expectDistMatchesSrc(rules: RuleDefinition[], opts: CompileOptions, f: 
 test.prop([rulesTied, facts, fc.boolean()])(
   'dist (cjs & esm) equal the source: core',
   (rules, f, allowUndefinedFacts) =>
-    expectDistMatchesSrc(rules as RuleDefinition[], { allowUndefinedFacts, operators: CUSTOM_OPS, pathResolver: jp }, f),
+    expectDistMatchesSrc(rules as Rule[], { allowUndefinedFacts, operators: CUSTOM_OPS, pathResolver: jp }, f),
 )
 
 test.prop([rulesDistinct, facts])(
   'dist (cjs & esm) equal the source: stopOnFirstEvent',
   (rules, f) =>
     expectDistMatchesSrc(
-      rules as RuleDefinition[],
+      rules as Rule[],
       { stopOnFirstEvent: true, allowUndefinedFacts: true, operators: CUSTOM_OPS, pathResolver: jp },
       f,
     ),
@@ -79,7 +79,7 @@ test.prop([rulesWithRefTied, namedConditions, facts, fc.boolean()])(
   'dist (cjs & esm) equal the source: named conditions',
   (rules, conditions, f, allowUndefinedFacts) =>
     expectDistMatchesSrc(
-      rules as RuleDefinition[],
+      rules as Rule[],
       { allowUndefinedFacts, conditions: conditions as never, operators: CUSTOM_OPS, pathResolver: jp },
       f,
     ),
