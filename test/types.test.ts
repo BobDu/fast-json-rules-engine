@@ -7,7 +7,6 @@ import type {
   Event,
   Facts,
   Rule,
-  RuleResult,
 } from '../src/index'
 
 // Type-level contract over the public .d.ts surface. These are checked by
@@ -21,11 +20,8 @@ test('public type surface', () => {
   expectTypeOf(compile).returns.toEqualTypeOf<CompiledRules>()
   expectTypeOf<CompiledRules['run']>().toEqualTypeOf<(facts: Facts) => EngineResult>()
 
-  // EngineResult exposes the four output surfaces
+  // EngineResult exposes only events (matched rules, highest priority first)
   expectTypeOf<EngineResult['events']>().toEqualTypeOf<Event[]>()
-  expectTypeOf<EngineResult['failureEvents']>().toEqualTypeOf<Event[]>()
-  expectTypeOf<EngineResult['results']>().toEqualTypeOf<RuleResult[]>()
-  expectTypeOf<EngineResult['failureResults']>().toEqualTypeOf<RuleResult[]>()
 
   // Event is generic; params defaults to Record<string, unknown> and is optional
   expectTypeOf<Event['params']>().toEqualTypeOf<Record<string, unknown> | undefined>()

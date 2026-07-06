@@ -55,8 +55,8 @@ two files:
   both-`all`-and-`any` condition collects/measures a different branch than it evaluates.
 - Empty `all` **and** empty `any` both evaluate `true`; numeric operators gate on
   `numberValidator` (`null >= 0` is `false`); `in`/`notIn` use `indexOf`; events
-  normalize to `{ type, params? }` (falsy params + non-`type`/`params` keys dropped);
-  a falsy rule `name` is dropped. `event.params` aliases the source rule (read-only).
+  normalize to `{ type, params? }` (falsy params + non-`type`/`params` keys dropped).
+  `event.params` aliases the source rule (read-only).
 - `hasOwn` (never `in`) throughout, matching upstream's `hasOwnProperty` checks.
 - **Deliberate fail-loud divergences** (rejected at compile, not silently
   mishandled): sub-condition `priority`, unparseable rule priority, uninjected
@@ -70,8 +70,8 @@ Two layers, kept separate so the fast source suite never needs a fresh build:
 
 - **Layer 1 (source):** `test/**/*.test.ts`. `test/fuzz.test.ts` = differential
   property testing via `test/helpers.ts` (`agrees`/`expectMatch` run the same
-  rules through the real `json-rules-engine` and compare all four output surfaces —
-  events/failureEvents/results/failureResults). `test/golden.test.ts` pins edge
+  rules through the real `json-rules-engine` and compare `events`, the only surface
+  this library returns). `test/golden.test.ts` pins edge
   cases + the intentional divergences; generators live in `test/arbitraries.ts`.
 - **Layer 2 (dist):** `test/dist-contract.test.ts` (src↔dist fast-check
   equivalence, own vitest config) + `test/dist-smoke.{cjs,mjs}` (load the built

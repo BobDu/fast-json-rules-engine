@@ -85,32 +85,17 @@ export interface Rule {
 export type RuleProperties = Rule
 
 /**
- * Result for a single rule. Unlike json-rules-engine, this does NOT include the
- * evaluated conditions tree — that per-run deep clone is the cost this library
- * exists to avoid. `result` is the boolean outcome; the event/priority/name
- * echo the rule definition.
+ * The outcome of evaluating a compiled rule set against one facts object.
+ *
+ * Only `events` is returned. json-rules-engine additionally exposes
+ * `failureEvents`, `results`, `failureResults`, and an `almanac`; those carry
+ * per-rule metadata and the per-run deep-cloned condition tree that this library
+ * does not produce. They are not supported here — read `events` (highest-priority
+ * match first).
  */
-export interface RuleResult {
-  result: boolean
-  event: Event
-  priority: number
-  name?: string
-  /**
-   * Index of this rule in the array passed to `compile` — an extension over
-   * json-rules-engine's RuleResult, for tracing which source rule produced a
-   * result (unnamed rules that share an event type are otherwise ambiguous).
-   */
-  ruleIndex: number
-}
-
-/** The outcome of evaluating a compiled rule set against one facts object. */
 export interface EngineResult {
   /** Events of matched rules, ordered by priority descending. */
   events: Event[]
-  /** Events of unmatched rules, in the same priority-descending order. */
-  failureEvents: Event[]
-  results: RuleResult[]
-  failureResults: RuleResult[]
 }
 
 /**

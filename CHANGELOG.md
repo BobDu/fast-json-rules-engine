@@ -9,7 +9,9 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Core `compile(rules, options)` API returning a compiled engine; call its
-  synchronous `run(facts)` to evaluate.
+  synchronous `run(facts)`, which returns `{ events }` (matched rules' events,
+  highest priority first). json-rules-engine's `failureEvents` / `results` /
+  `failureResults` / `almanac` are not produced.
 - Full json-rules-engine rule-format support: 10 operators, 6 operator
   decorators, nested `all`/`any`/`not`, `priority`, value-as-fact references,
   named conditions, and custom operators. `path` support is via an injected
@@ -22,8 +24,6 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `stopOnFirstEvent` option for first-match evaluation.
 - `allowUndefinedConditions` option: an unknown named condition compiles to `false`
   instead of throwing (matches json-rules-engine).
-- `RuleResult.ruleIndex` (the rule's position in the input array) for tracing which
-  rule produced a result — an extension over json-rules-engine.
 - Differential fuzzing suite checking output against json-rules-engine 6.6.0.
 - Benchmark (`npm run bench`).
 

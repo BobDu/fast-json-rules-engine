@@ -32,7 +32,7 @@ fc.configureGlobal({ numRuns: Number(process.env.FJRE_CONTRACT_N ?? 300) })
 
 type Outcome =
   | { stage: 'compile' | 'eval'; name: string }
-  | { stage: 'ok'; events: unknown; failureEvents: unknown; results: unknown; failureResults: unknown }
+  | { stage: 'ok'; events: unknown }
 
 // Capture the full observable result — output on success, error class name on a
 // throw at either compile or evaluate time — so any divergence (including "one
@@ -47,7 +47,7 @@ function outcome(compileFn: typeof compileSrc, rules: Rule[], opts: CompileOptio
   }
   try {
     const r = ev.run(structuredClone(f))
-    return { stage: 'ok', events: r.events, failureEvents: r.failureEvents, results: r.results, failureResults: r.failureResults }
+    return { stage: 'ok', events: r.events }
   } catch (e) {
     return { stage: 'eval', name: (e as Error)?.name ?? String(e) }
   }

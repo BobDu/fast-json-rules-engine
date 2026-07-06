@@ -77,12 +77,13 @@ const topTier = events[0]?.params?.tier // 'gold'
 
 ```ts
 {
-  events: Event[]          // matched rules' events, priority descending
-  failureEvents: Event[]   // unmatched rules' events
-  results: RuleResult[]    // { result, event, priority, name, ruleIndex } per matched rule
-  failureResults: RuleResult[]
+  events: Event[]  // matched rules' events, highest priority first
 }
 ```
+
+Only `events` is returned. json-rules-engine also returns `failureEvents`,
+`results`, `failureResults`, and an `almanac`; those carry per-rule metadata and
+the per-run condition-tree clone this library avoids, and are **not** produced here.
 
 Returned events are **normalized** to json-rules-engine's shape — `{ type, params? }`,
 with `params` present only when truthy and any other keys dropped (a rule event
@@ -181,7 +182,7 @@ What it deliberately does **not** do (the runtime dynamism it trades for speed):
 | --- | --- |
 | Async facts / fact functions | Facts must be plain static values. This is the core assumption that makes compilation worthwhile. |
 | Event handlers (`engine.on('success', …)`) | Read the returned `events` instead. |
-| The evaluated conditions tree in results | `results` carry `{ result, event, priority, name }` — not the per-condition result tree that json-rules-engine deep-clones each run. |
+| `failureEvents` / `results` / `failureResults` / `almanac` in the result | Not returned — `run()` yields only `events`. json-rules-engine's per-rule result objects, failure surfaces, evaluated-conditions tree, and almanac have no counterpart here (the condition-tree clone is its main per-run cost). |
 | Runtime rule mutation (`addRule` after run) | Rules are compiled up front; recompile to change them. |
 | Bundled JSONPath | No path engine is shipped; `path` requires an injected `pathResolver` (see [Paths](#paths)). |
 | Sub-condition priorities | A `priority` on a nested condition (json-rules-engine's within-rule evaluation ordering) is rejected at compile time — meaningless once compiled over static facts. |
@@ -260,8 +261,8 @@ no per-run allocation of promises, almanacs, or cloned condition trees.
 All exports from `fast-json-rules-engine`:
 
 - **`compile(rules, options?)`** → a compiled engine `{ run }`. Call
-  **`.run(facts)`** → `{ events, failureEvents, results, failureResults }`
-  (synchronous). `rules` is a rule object or an array; see [Options](#options).
+  **`.run(facts)`** → `{ events }` (synchronous). `rules` is a rule object or an
+  array; see [Options](#options).
 - **`CompileError`** — thrown at compile time (unknown operator, malformed
   condition, uninjected `path`, cycle, over-deep nesting). Carries
   `code: 'COMPILE_ERROR'` and, for a rule-scoped error, `ruleIndex`.
@@ -272,7 +273,7 @@ All exports from `fast-json-rules-engine`:
   built-in operator / decorator names, handy for validating rule documents before
   compiling.
 - **Types:** `Rule` (also exported as `RuleProperties`), `CompileOptions`,
-  `CompiledRules`, `Event<Params>`, `EngineResult`, `RuleResult`, `Facts`,
+  `CompiledRules`, `Event<Params>`, `EngineResult`, `Facts`,
   `Condition` / `TopLevelCondition` / `LeafCondition` / `AllCondition` /
   `AnyCondition` / `NotCondition` / `ConditionReference` / `ValueReference`,
   `OperatorFn`, `PathResolver`.

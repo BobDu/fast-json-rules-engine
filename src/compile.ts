@@ -13,7 +13,6 @@ import type {
   NotCondition,
   PathResolver,
   Rule,
-  RuleResult,
 } from './types'
 
 type Predicate = (facts: Facts) => boolean
@@ -331,8 +330,6 @@ interface CompiledRule {
   predicate: Predicate
   event: Rule['event']
   priority: number
-  name?: string
-  index: number
 }
 
 /**
@@ -416,14 +413,7 @@ export function compile(
     } catch (e) {
       throw new CompileError(`Rule at index ${index}: ${(e as Error).message}`, { ruleIndex: index })
     }
-    return {
-      predicate,
-      event,
-      priority,
-      // Match json-rules-engine: a falsy rule name (e.g. "") is treated as no name.
-      name: rule.name || undefined,
-      index,
-    }
+    return { predicate, event, priority }
   })
 
   const requiredFacts = Array.from(allRequired)
@@ -451,31 +441,16 @@ export function compile(
     }
 
     const events: EngineResult['events'] = []
-    const failureEvents: EngineResult['failureEvents'] = []
-    const results: RuleResult[] = []
-    const failureResults: RuleResult[] = []
 
     for (let i = 0; i < count; i++) {
       const rule = order[i]!
-      const matched = rule.predicate(facts)
-      const result: RuleResult = {
-        result: matched,
-        event: rule.event,
-        priority: rule.priority,
-        name: rule.name,
-        ruleIndex: rule.index,
-      }
-      if (matched) {
+      if (rule.predicate(facts)) {
         events.push(rule.event)
-        results.push(result)
         if (stopOnFirstEvent) break
-      } else {
-        failureEvents.push(rule.event)
-        failureResults.push(result)
       }
     }
 
-    return { events, failureEvents, results, failureResults }
+    return { events }
   }
 
   return { run }

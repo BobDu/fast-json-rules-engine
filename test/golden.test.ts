@@ -264,18 +264,6 @@ test('named-condition fan-out DAG evaluates (runtime, not just compile)', () => 
   expect(engine.run({ x: 2 }).events).toEqual([])
 })
 
-// --- results/failureResults carry the same normalized event as events
-test('results/failureResults carry the same normalized event object as events', () => {
-  const out = compile([
-    { conditions: { all: [] }, event: { type: 'a', params: null, extra: 1 } as never }, // matches
-    { conditions: { all: [{ fact: 'x', operator: 'equal', value: 999 }] }, event: { type: 'b', params: { tier: 'gold' }, meta: 'drop' } as never }, // fails
-  ]).run({ x: 1 })
-  expect(out.results.map((r) => r.event)).toStrictEqual([{ type: 'a' }])
-  expect(out.failureResults.map((r) => r.event)).toStrictEqual([{ type: 'b', params: { tier: 'gold' } }])
-  expect(out.results[0].event).toBe(out.events[0]) // one normalized object shared across the events/results surfaces
-  expect(out.failureResults[0].event).toBe(out.failureEvents[0])
-})
-
 // --- a falsy path ('' / null) is ignored, matching json-rules-engine (if(path))
 test('falsy path is ignored like json-rules-engine (uses the raw fact value)', async () => {
   for (const path of ['', null]) {
@@ -319,27 +307,7 @@ test('deep chain via a memoized named condition fails loud at compile', () => {
   ).toThrow(CompileError)
 })
 
-// --- result surface: result/priority/name are carried, and params aliases the source
-test('results/failureResults carry result, priority, name, and ruleIndex', () => {
-  const out = compile([
-    { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('hit'), priority: 7, name: 'r1' },
-    { conditions: { all: [{ fact: 'x', operator: 'equal', value: 2 }] }, event: ev('miss'), priority: 3, name: 'r2' },
-  ]).run({ x: 1 })
-  expect(out.results).toEqual([{ result: true, event: { type: 'hit', params: { groupId: 'hit' } }, priority: 7, name: 'r1', ruleIndex: 0 }])
-  expect(out.failureResults).toEqual([{ result: false, event: { type: 'miss', params: { groupId: 'miss' } }, priority: 3, name: 'r2', ruleIndex: 1 }])
-})
-test('ruleIndex is the original array index, independent of priority order', () => {
-  const out = compile([
-    { conditions: { all: [] }, event: ev('low'), priority: 1 }, // source index 0
-    { conditions: { all: [] }, event: ev('high'), priority: 9 }, // source index 1
-  ]).run({ x: 1 })
-  // events come back priority-sorted [high, low], but ruleIndex tracks source order
-  expect(out.results.map((r) => [r.event.type, r.ruleIndex])).toEqual([['high', 1], ['low', 0]])
-})
-test('a falsy rule name is dropped, matching json-rules-engine', () => {
-  const out = compile([{ conditions: { all: [] }, event: ev('a'), name: '' }]).run({ x: 1 })
-  expect(out.results[0].name).toBeUndefined()
-})
+// --- returned events alias the source rule's params (documented residual, read-only)
 test('returned event params aliases the source rule (documented residual, read-only)', () => {
   const rule = { conditions: { all: [] }, event: { type: 'a', params: { n: 1 } } }
   const out = compile([rule]).run({ x: 1 })

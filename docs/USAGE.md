@@ -22,12 +22,12 @@ const result = engine.run(facts)           // call per request; synchronous
 
 ```js
 {
-  events,         // events of matched rules, ordered by priority descending
-  failureEvents,  // events of unmatched rules
-  results,        // { result, event, priority, name } per matched rule
-  failureResults, // same, per unmatched rule
+  events, // events of matched rules, ordered by priority descending
 }
 ```
+
+Only `events` is returned. json-rules-engine's `failureEvents`, `results`,
+`failureResults`, and `almanac` are not produced here.
 
 ```js
 const engine = compile([
@@ -35,8 +35,7 @@ const engine = compile([
 ])
 
 engine.run({ age: 20 }).events // → [{ type: 'adult', params: { tier: 'A' } }]
-engine.run({ age: 10 }).events // → []
-engine.run({ age: 10 }).failureEvents.map((e) => e.type) // → ['adult']
+engine.run({ age: 10 }).events // → []  (no rule matched)
 ```
 
 Most callers only need `events`; the highest-priority match is `events[0]`.

@@ -8,30 +8,21 @@ import type { CompileOptions, Facts, Rule } from '../src/index'
 // structuredClone — which preserves NaN/Infinity/undefined that JSON clone would
 // mangle. This is why the differential oracle can faithfully feed edge values.
 //
-// All four output surfaces are compared as FULL objects against json-rules-engine:
-// events / failureEvents (whole event objects, so dropped falsy params, dropped
-// extra keys, and params-key presence are caught) AND results /
-// failureResults as { result, name, event } tuples (so result.name / result.result
-// and the normalized result.event are verified, not just events).
+// Our run() returns only `events`, so that is the surface compared against
+// json-rules-engine. Events are compared as FULL objects (dropped falsy params,
+// dropped extra keys, and params-key presence are all caught), and since they are
+// the matched rules' events in priority order, this verifies which rules matched
+// and their ordering. json-rules-engine's failureEvents/results/failureResults
+// have no counterpart here, so there is nothing else to compare.
 
 type NormEvent = Record<string, unknown>
-interface NormResult {
-  result: boolean
-  name: unknown
-  event: NormEvent
-}
 interface Outcome {
   threw: boolean
   events?: NormEvent[]
-  failureEvents?: NormEvent[]
-  results?: NormResult[]
-  failureResults?: NormResult[]
   error?: unknown
 }
 
 const normEvents = (events: unknown[]): NormEvent[] => events.map((e) => structuredClone(e) as NormEvent)
-const normResults = (rs: Array<{ result: boolean; name?: unknown; event: unknown }>): NormResult[] =>
-  rs.map((r) => ({ result: r.result, name: r.name ?? null, event: structuredClone(r.event) as NormEvent }))
 
 /** Run the same rules through the real json-rules-engine, capturing throw vs output. */
 export async function referenceRun(
@@ -54,13 +45,7 @@ export async function referenceRun(
     for (const r of list) engine.addRule(structuredClone(r) as never)
     if (options.stopOnFirstEvent) engine.on('success', () => engine.stop())
     const res = await engine.run(facts)
-    return {
-      threw: false,
-      events: normEvents(res.events),
-      failureEvents: normEvents(res.failureEvents),
-      results: normResults(res.results as never),
-      failureResults: normResults(res.failureResults as never),
-    }
+    return { threw: false, events: normEvents(res.events) }
   } catch (error) {
     return { threw: true, error }
   }
@@ -73,13 +58,7 @@ function evaluateOwn(
 ): Outcome {
   try {
     const r = compile(rules, options).run(facts)
-    return {
-      threw: false,
-      events: normEvents(r.events),
-      failureEvents: normEvents(r.failureEvents),
-      results: normResults(r.results),
-      failureResults: normResults(r.failureResults),
-    }
+    return { threw: false, events: normEvents(r.events) }
   } catch (error) {
     return { threw: true, error }
   }
@@ -107,9 +86,6 @@ export async function expectMatch(
 
   const pick = cmp.orderInsensitive ? sortBy : <T>(x: T[]) => x
   expect(pick(mine.events!)).toEqual(pick(ref.events!))
-  expect(pick(mine.failureEvents!)).toEqual(pick(ref.failureEvents!))
-  expect(pick(mine.results!)).toEqual(pick(ref.results!))
-  expect(pick(mine.failureResults!)).toEqual(pick(ref.failureResults!))
 }
 
 /** Non-throwing variant for fast-check properties: returns true iff engines agree. */
@@ -123,10 +99,5 @@ export async function agrees(
   const mine = evaluateOwn(rules, facts, options)
   if (mine.threw || ref.threw) return mine.threw === ref.threw
   const pick = cmp.orderInsensitive ? sortBy : <T>(x: T[]) => x
-  return (
-    isDeepStrictEqual(pick(mine.events!), pick(ref.events!)) &&
-    isDeepStrictEqual(pick(mine.failureEvents!), pick(ref.failureEvents!)) &&
-    isDeepStrictEqual(pick(mine.results!), pick(ref.results!)) &&
-    isDeepStrictEqual(pick(mine.failureResults!), pick(ref.failureResults!))
-  )
+  return isDeepStrictEqual(pick(mine.events!), pick(ref.events!))
 }

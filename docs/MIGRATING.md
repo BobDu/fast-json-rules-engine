@@ -38,10 +38,12 @@ const { events } = engine.run(facts) // synchronous — no await
 for (const event of events) handle(event) // read events instead of on('success')
 ```
 
-The result shape matches (`{ events, failureEvents, results, failureResults }`),
-`events` are ordered highest-priority first, and `event` objects are normalized to
-the same `{ type, params? }` shape — so most call sites only change from
-`await engine.run(facts)` to `engine.run(facts)` (still `engine.run`, just no `await`).
+`run()` returns **only `events`** — the matched rules' events, highest-priority
+first, normalized to `{ type, params? }`. json-rules-engine additionally returns
+`failureEvents`, `results`, `failureResults`, and an `almanac`, which are **not
+supported** here (see the table below). So most call sites only change from
+`await engine.run(facts)` to `engine.run(facts)` (still `engine.run`, just no `await`)
+and read `.events`.
 
 **`run()` is synchronous — mind `.then()`.** It returns the result object
 directly, not a Promise. `await engine.run(facts)` keeps working (awaiting a
@@ -49,11 +51,6 @@ non-Promise is harmless), so code ported with a leftover `await` is fine. But a
 Promise chain — `engine.run(facts).then(…)` / `.catch(…)` — throws
 `TypeError: … .then is not a function`, because the result is a plain object with
 no `.then`. Drop the chain and use the returned value directly.
-
-Each `RuleResult` additionally carries `ruleIndex` (its position in the array you
-passed to `compile`) — an extension over json-rules-engine, handy for tracing
-which rule fired when rules are unnamed or share an event type. Giving rules a
-`name` helps too; both surface on `results` / `failureResults`.
 
 ## ✅ Works unchanged
 
@@ -76,7 +73,7 @@ Existing rule documents compile as-is. All of these behave identically:
 | json-rules-engine | fast-json-rules-engine |
 | --- | --- |
 | `await engine.run(facts)` | `engine.run(facts)` (synchronous; no `await`, no `.then()`) |
-| `engine.on('success', cb)` / `on('failure', cb)` | iterate the returned `events` / `failureEvents` |
+| `engine.on('success', cb)` | iterate the returned `events` (`on('failure')` has no counterpart — see below) |
 | `engine.addOperator(name, cb)` | `compile(rules, { operators: { name: cb } })` |
 | `engine.setCondition(name, cond)` | `compile(rules, { conditions: { name: cond } })` |
 | built-in `path` (jsonpath-plus) | inject it (see below) |
@@ -110,10 +107,10 @@ scope. Most have a simple workaround given static facts.
 | **Rule chaining via events/almanac** | Read the returned `events`, build the next `facts`, and call `run` again — you orchestrate the chain explicitly. |
 | **Facts in event params** (`replaceFactsInEventParams`) | Ignored — `event.params` is returned as authored. Resolve `{ fact }` references yourself after `run()` ([example below](#resolving-fact-references-in-event-params)). |
 | **Fact params on a condition** (`{ fact, params }`) | Only parameterize dynamic fact functions (unsupported); ignored for static facts, exactly as json-rules-engine does. |
-| **Event handlers** (`engine.on(...)`) | Read `events` / `failureEvents` from the result. |
+| **Event handlers** (`engine.on(...)`) | Read the returned `events`. |
 | **Custom almanac** | No almanac concept; there's nothing to customize. |
 | **Runtime rule mutation** (`addRule` after a run) | Rules are compiled up front; recompile to change them. |
-| **The evaluated-conditions tree in `results`** | `results` carry `{ result, event, priority, name }` — not the per-condition tree json-rules-engine deep-clones each run (that clone is the main cost avoided here). |
+| **`failureEvents` / `results` / `failureResults` / `almanac`** | Not returned — `run()` yields only `events`. json-rules-engine's failure surfaces, per-rule result objects, the evaluated-conditions tree, and the almanac have no counterpart here. Determine failures from your own logic; the condition-tree clone is json-rules-engine's main per-run cost. |
 
 ### Resolving fact references in event params
 
@@ -175,7 +172,7 @@ json-rules-engine's `examples/` mapped to this library:
 | `02-nested-boolean-logic` | [`examples/03-boolean-composition.mjs`](../examples/03-boolean-composition.mjs) |
 | `06-custom-operators` | [`examples/06-named-and-custom.mjs`](../examples/06-named-and-custom.mjs) |
 | `08-fact-comparison` | [`examples/06-named-and-custom.mjs`](../examples/06-named-and-custom.mjs) (value fact ref) |
-| `09-rule-results` | [`examples/01-basics.mjs`](../examples/01-basics.mjs) (return shape) |
+| `09-rule-results` | ❌ not supported — `run()` returns only `events`, not per-rule results |
 | `10-condition-sharing` | [`examples/06-named-and-custom.mjs`](../examples/06-named-and-custom.mjs) (named conditions) |
 | `13-using-operator-decorators` | [`examples/05-decorators.mjs`](../examples/05-decorators.mjs) |
 | `03-dynamic-facts` | ❌ not supported (compute facts up front) |
