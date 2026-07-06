@@ -19,7 +19,7 @@ const rules = [
   },
 ]
 
-const evaluate = compile(rules)
+const engine = compile(rules)
 
 for (const facts of [
   { country: 'US', spend: 120, vip: false, banned: false }, // → ['target']  (spend>100)
@@ -27,5 +27,5 @@ for (const facts of [
   { country: 'US', spend: 120, vip: false, banned: true }, // → []          (banned)
   { country: 'CN', spend: 999, vip: true, banned: false }, // → []          (country not in US/GB)
 ]) {
-  console.log(JSON.stringify(facts), '→', evaluate(facts).events.map((e) => e.type))
+  console.log(JSON.stringify(facts), '→', engine.run(facts).events.map((e) => e.type))
 }

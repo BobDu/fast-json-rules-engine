@@ -5,19 +5,19 @@ import { JSONPath } from 'jsonpath-plus'
 
 const jp = (value, path) => JSONPath({ path, json: value, wrap: false })
 
-const evaluate = compile(
+const engine = compile(
   [{ conditions: { all: [{ fact: 'user', path: '$.profile.level', operator: 'greaterThan', value: 10 }] }, event: { type: 'senior' } }],
   { pathResolver: jp },
 )
 
-console.log(evaluate({ user: { profile: { level: 20 } } }).events.map((e) => e.type)) // [ 'senior' ]
-console.log(evaluate({ user: { profile: { level: 5 } } }).events.map((e) => e.type)) //  []
+console.log(engine.run({ user: { profile: { level: 20 } } }).events.map((e) => e.type)) // [ 'senior' ]
+console.log(engine.run({ user: { profile: { level: 5 } } }).events.map((e) => e.type)) //  []
 
 // full JSONPath (array index) also works through the injected resolver:
 const firstItem = compile(
   [{ conditions: { all: [{ fact: 'o', path: '$.items[0].id', operator: 'equal', value: 7 }] }, event: { type: 'first' } }],
   { pathResolver: jp },
 )
-console.log(firstItem({ o: { items: [{ id: 7 }, { id: 9 }] } }).events.map((e) => e.type)) // [ 'first' ]
+console.log(firstItem.run({ o: { items: [{ id: 7 }, { id: 9 }] } }).events.map((e) => e.type)) // [ 'first' ]
 
 // Without a pathResolver, a rule using `path` throws CompileError at compile time.

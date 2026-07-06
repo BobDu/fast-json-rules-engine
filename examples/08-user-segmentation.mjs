@@ -39,7 +39,7 @@ const rules = [
 
 // Compile once at startup; take the single highest-priority match per request.
 const segment = compile(rules, { stopOnFirstEvent: true })
-const groupOf = (player) => segment(player).events[0]?.params.groupId ?? -1
+const groupOf = (player) => segment.run(player).events[0]?.params.groupId ?? -1
 
 console.log(groupOf({ iapTotal: 5000, country: 'US', daysActive: 30, maxLevel: 80 })) // 1004  whale
 console.log(groupOf({ iapTotal: 20, country: 'US', daysActive: 2, maxLevel: 10 })) //   1003  payer

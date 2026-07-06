@@ -8,15 +8,15 @@ const rules = [
   },
 ]
 
-const evaluate = compile(rules)
+const engine = compile(rules)
 
-console.dir(evaluate({ age: 20 }), { depth: null })
+console.dir(engine.run({ age: 20 }), { depth: null })
 // {
 //   events: [ { type: 'adult', params: { tier: 'A' } } ],
 //   failureEvents: [],
-//   results: [ { result: true, event: { type: 'adult', params: { tier: 'A' } }, priority: 1, name: undefined } ],
+//   results: [ { result: true, event: { type: 'adult', params: { tier: 'A' } }, priority: 1, name: undefined, ruleIndex: 0 } ],
 //   failureResults: []
 // }
 
-console.log(evaluate({ age: 10 }).events) // []
-console.log(evaluate({ age: 10 }).failureEvents.map((e) => e.type)) // [ 'adult' ]
+console.log(engine.run({ age: 10 }).events) // []
+console.log(engine.run({ age: 10 }).failureEvents.map((e) => e.type)) // [ 'adult' ]

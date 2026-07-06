@@ -155,5 +155,11 @@ export interface CompileOptions {
   pathResolver?: PathResolver
 }
 
-/** A compiled rule set: call it with facts to get the evaluation result. */
-export type CompiledRules = (facts: Facts) => EngineResult
+/** A compiled rule set. Call {@link CompiledRules.run} with facts to evaluate. */
+export interface CompiledRules {
+  /**
+   * Evaluate the compiled rules against a facts object. Synchronous: returns the
+   * result directly (not a Promise), so `await` is unnecessary but harmless.
+   */
+  run(facts: Facts): EngineResult
+}

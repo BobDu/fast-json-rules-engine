@@ -5,8 +5,8 @@ fast-json-rules-engine is a **drop-in replacement for the rule format and the
 dynamics. In practice:
 
 - Your **rule JSON is unchanged** and produces the **same `events`**.
-- Swap `new Engine() + addRule() + await run()` for `compile() + evaluate()`
-  (synchronous).
+- Swap `new Engine() + addRule() + await run()` for `compile()` then a
+  synchronous `.run()`.
 - Read the returned `events` instead of registering `on('success')` handlers.
 - A handful of runtime-dynamic features are intentionally **not** supported —
   they're the source of json-rules-engine's per-run cost.
@@ -29,19 +29,26 @@ const { events } = await engine.run(facts)
 // fast-json-rules-engine
 import { compile } from 'fast-json-rules-engine'
 
-const evaluate = compile(rules, {
+const engine = compile(rules, {
   allowUndefinedFacts: true,
   operators: { startsWith: (a, b) => a.startsWith(b) },
   conditions: { isWhale: cond },
 })
-const { events } = evaluate(facts) // synchronous — no await
+const { events } = engine.run(facts) // synchronous — no await
 for (const event of events) handle(event) // read events instead of on('success')
 ```
 
 The result shape matches (`{ events, failureEvents, results, failureResults }`),
 `events` are ordered highest-priority first, and `event` objects are normalized to
 the same `{ type, params? }` shape — so most call sites only change from
-`await engine.run(facts)` to `evaluate(facts)`.
+`await engine.run(facts)` to `engine.run(facts)` (still `engine.run`, just no `await`).
+
+**`run()` is synchronous — mind `.then()`.** It returns the result object
+directly, not a Promise. `await engine.run(facts)` keeps working (awaiting a
+non-Promise is harmless), so code ported with a leftover `await` is fine. But a
+Promise chain — `engine.run(facts).then(…)` / `.catch(…)` — throws
+`TypeError: … .then is not a function`, because the result is a plain object with
+no `.then`. Drop the chain and use the returned value directly.
 
 Each `RuleResult` additionally carries `ruleIndex` (its position in the array you
 passed to `compile`) — an extension over json-rules-engine, handy for tracing
@@ -68,7 +75,7 @@ Existing rule documents compile as-is. All of these behave identically:
 
 | json-rules-engine | fast-json-rules-engine |
 | --- | --- |
-| `await engine.run(facts)` | `evaluate(facts)` (synchronous) |
+| `await engine.run(facts)` | `engine.run(facts)` (synchronous; no `await`, no `.then()`) |
 | `engine.on('success', cb)` / `on('failure', cb)` | iterate the returned `events` / `failureEvents` |
 | `engine.addOperator(name, cb)` | `compile(rules, { operators: { name: cb } })` |
 | `engine.setCondition(name, cond)` | `compile(rules, { conditions: { name: cond } })` |
@@ -81,7 +88,7 @@ releases carry a JSONPath RCE advisory) for the same behavior:
 ```js
 import { JSONPath } from 'jsonpath-plus'
 
-const evaluate = compile(rules, {
+const engine = compile(rules, {
   pathResolver: (value, path) => JSONPath({ path, json: value, wrap: false }),
 })
 ```
@@ -100,8 +107,8 @@ scope. Most have a simple workaround given static facts.
 | **Async / computed facts** (`engine.addFact(id, async fn)`) | Compute the value before evaluating and put it on the `facts` object. Facts are plain static values. |
 | **Fact dependency** (a fact derived from other facts) | Same — derive it up front and pass it in. |
 | **Sub-condition / fact priorities** (a `priority` on a nested condition) | Not supported; rejected at compile time. Rule-level `priority` is supported. |
-| **Rule chaining via events/almanac** | Read the returned `events`, build the next `facts`, and call `evaluate` again — you orchestrate the chain explicitly. |
-| **Facts in event params** (`replaceFactsInEventParams`) | Ignored — `event.params` is returned as authored. Resolve `{ fact }` references yourself after `evaluate()` ([example below](#resolving-fact-references-in-event-params)). |
+| **Rule chaining via events/almanac** | Read the returned `events`, build the next `facts`, and call `run` again — you orchestrate the chain explicitly. |
+| **Facts in event params** (`replaceFactsInEventParams`) | Ignored — `event.params` is returned as authored. Resolve `{ fact }` references yourself after `run()` ([example below](#resolving-fact-references-in-event-params)). |
 | **Fact params on a condition** (`{ fact, params }`) | Only parameterize dynamic fact functions (unsupported); ignored for static facts, exactly as json-rules-engine does. |
 | **Event handlers** (`engine.on(...)`) | Read `events` / `failureEvents` from the result. |
 | **Custom almanac** | No almanac concept; there's nothing to customize. |
@@ -114,13 +121,13 @@ json-rules-engine's non-default `replaceFactsInEventParams` option rewrites
 `{ fact: 'x' }`-shaped values inside a matched event's `params` with the resolved
 fact value. This engine has no runtime almanac, so **the option is ignored** and
 `event.params` comes back exactly as authored. If you relied on it, resolve the
-references yourself after `evaluate()`. Returned events are read-only (shared
+references yourself after `run()`. Returned events are read-only (shared
 across evaluations), so build resolved copies rather than mutating them in place:
 
 ```js
 const isFactRef = (v) => v !== null && typeof v === 'object' && 'fact' in v
 
-const { events } = evaluate(facts)
+const { events } = engine.run(facts)
 const resolved = events.map((e) => ({
   type: e.type,
   params:

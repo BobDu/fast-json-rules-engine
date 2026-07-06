@@ -440,7 +440,7 @@ export function compile(
   const count = order.length
   const requiredCount = requiredFacts.length
 
-  return function evaluate(facts: Facts): EngineResult {
+  function run(facts: Facts): EngineResult {
     // Global undefined-fact pre-check (see compile above): any absent referenced
     // fact throws before evaluation, so short-circuit / stopOnFirstEvent cannot
     // hide it. Skipped when allowUndefinedFacts is true.
@@ -477,4 +477,6 @@ export function compile(
 
     return { events, failureEvents, results, failureResults }
   }
+
+  return { run }
 }

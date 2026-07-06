@@ -8,7 +8,8 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Core `compile(rules, options)` API returning a synchronous evaluator.
+- Core `compile(rules, options)` API returning a compiled engine; call its
+  synchronous `run(facts)` to evaluate.
 - Full json-rules-engine rule-format support: 10 operators, 6 operator
   decorators, nested `all`/`any`/`not`, `priority`, value-as-fact references,
   named conditions, and custom operators. `path` support is via an injected

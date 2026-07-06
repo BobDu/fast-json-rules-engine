@@ -123,14 +123,14 @@ test('named condition reference is inlined', () =>
 
 // --- stopOnFirstEvent (our extension)
 test('stopOnFirstEvent returns only the highest-priority match', () => {
-  const evaluate = compile(
+  const engine = compile(
     [
       { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('low'), priority: 1 },
       { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('high'), priority: 100 },
     ],
     { stopOnFirstEvent: true },
   )
-  const { events } = evaluate({ x: 1 })
+  const { events } = engine.run({ x: 1 })
   expect(events.length).toBe(1)
   expect(events[0].type).toBe('high')
 })
@@ -225,9 +225,9 @@ test('deep nesting also fails loud in compileCondition (allowUndefinedFacts skip
 
 // --- compile accepts a single rule object, not just an array
 test('a single rule (not wrapped in an array) compiles and evaluates', () => {
-  const evaluate = compile({ conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('a') })
-  expect(evaluate({ x: 1 }).events.map((e) => e.type)).toEqual(['a'])
-  expect(evaluate({ x: 2 }).events).toEqual([])
+  const engine = compile({ conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('a') })
+  expect(engine.run({ x: 1 }).events.map((e) => e.type)).toEqual(['a'])
+  expect(engine.run({ x: 2 }).events).toEqual([])
 })
 
 // --- event normalized to json-rules-engine's { type, params? } shape
@@ -245,12 +245,12 @@ test('returned events are normalized to exactly { type, params? }', () => {
   const out = compile([
     { conditions: { all: [] }, event: { type: 'a', params: null, extra: 1 } as never },
     { conditions: { all: [] }, event: { type: 'b', params: { tier: 'gold' }, meta: 'drop' } as never },
-  ])({ x: 1 })
+  ]).run({ x: 1 })
   expect(out.events).toStrictEqual([{ type: 'a' }, { type: 'b', params: { tier: 'gold' } }])
 })
 test('returned event is our own fresh object, not the caller rule.event', () => {
   const rule = { conditions: { all: [] }, event: { type: 'a', params: { n: 1 }, extra: 'x' } }
-  const out = compile([rule] as never)({ x: 1 })
+  const out = compile([rule] as never).run({ x: 1 })
   expect(out.events[0]).not.toBe(rule.event) // fresh top-level object (mutating it can't corrupt the source rule)
   expect(out.events[0]).toStrictEqual({ type: 'a', params: { n: 1 } }) // extra key dropped
 })
@@ -259,9 +259,9 @@ test('returned event is our own fresh object, not the caller rule.event', () => 
 test('named-condition fan-out DAG evaluates (runtime, not just compile)', () => {
   const conditions: Record<string, unknown> = { c0: { all: [{ fact: 'x', operator: 'equal', value: 1 }] } }
   for (let i = 1; i < 12; i++) conditions['c' + i] = { all: [{ condition: 'c' + (i - 1) }, { condition: 'c' + (i - 1) }] }
-  const evaluate = compile([{ conditions: { all: [{ condition: 'c11' }] }, event: ev('a') }], { conditions: conditions as never })
-  expect(evaluate({ x: 1 }).events.map((e) => e.type)).toEqual(['a'])
-  expect(evaluate({ x: 2 }).events).toEqual([])
+  const engine = compile([{ conditions: { all: [{ condition: 'c11' }] }, event: ev('a') }], { conditions: conditions as never })
+  expect(engine.run({ x: 1 }).events.map((e) => e.type)).toEqual(['a'])
+  expect(engine.run({ x: 2 }).events).toEqual([])
 })
 
 // --- results/failureResults carry the same normalized event as events
@@ -269,7 +269,7 @@ test('results/failureResults carry the same normalized event object as events', 
   const out = compile([
     { conditions: { all: [] }, event: { type: 'a', params: null, extra: 1 } as never }, // matches
     { conditions: { all: [{ fact: 'x', operator: 'equal', value: 999 }] }, event: { type: 'b', params: { tier: 'gold' }, meta: 'drop' } as never }, // fails
-  ])({ x: 1 })
+  ]).run({ x: 1 })
   expect(out.results.map((r) => r.event)).toStrictEqual([{ type: 'a' }])
   expect(out.failureResults.map((r) => r.event)).toStrictEqual([{ type: 'b', params: { tier: 'gold' } }])
   expect(out.results[0].event).toBe(out.events[0]) // one normalized object shared across the events/results surfaces
@@ -324,7 +324,7 @@ test('results/failureResults carry result, priority, name, and ruleIndex', () =>
   const out = compile([
     { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('hit'), priority: 7, name: 'r1' },
     { conditions: { all: [{ fact: 'x', operator: 'equal', value: 2 }] }, event: ev('miss'), priority: 3, name: 'r2' },
-  ])({ x: 1 })
+  ]).run({ x: 1 })
   expect(out.results).toEqual([{ result: true, event: { type: 'hit', params: { groupId: 'hit' } }, priority: 7, name: 'r1', ruleIndex: 0 }])
   expect(out.failureResults).toEqual([{ result: false, event: { type: 'miss', params: { groupId: 'miss' } }, priority: 3, name: 'r2', ruleIndex: 1 }])
 })
@@ -332,23 +332,23 @@ test('ruleIndex is the original array index, independent of priority order', () 
   const out = compile([
     { conditions: { all: [] }, event: ev('low'), priority: 1 }, // source index 0
     { conditions: { all: [] }, event: ev('high'), priority: 9 }, // source index 1
-  ])({ x: 1 })
+  ]).run({ x: 1 })
   // events come back priority-sorted [high, low], but ruleIndex tracks source order
   expect(out.results.map((r) => [r.event.type, r.ruleIndex])).toEqual([['high', 1], ['low', 0]])
 })
 test('a falsy rule name is dropped, matching json-rules-engine', () => {
-  const out = compile([{ conditions: { all: [] }, event: ev('a'), name: '' }])({ x: 1 })
+  const out = compile([{ conditions: { all: [] }, event: ev('a'), name: '' }]).run({ x: 1 })
   expect(out.results[0].name).toBeUndefined()
 })
 test('returned event params aliases the source rule (documented residual, read-only)', () => {
   const rule = { conditions: { all: [] }, event: { type: 'a', params: { n: 1 } } }
-  const out = compile([rule])({ x: 1 })
+  const out = compile([rule]).run({ x: 1 })
   expect(out.events[0].params).toBe(rule.event.params) // same sub-object — not a per-run deep clone
 })
 
 // --- stopOnFirstEvent still enforces the global undefined-fact pre-check
 test('stopOnFirstEvent still requires all referenced facts (global pre-check)', () => {
-  const evaluate = compile(
+  const engine = compile(
     [
       { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('hit'), priority: 2 },
       { conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] }, event: ev('lo'), priority: 1 },
@@ -358,8 +358,8 @@ test('stopOnFirstEvent still requires all referenced facts (global pre-check)', 
   // The union pre-check runs before any rule, so a missing fact throws even though
   // the higher-priority rule would match and stop first — a deliberate fail-loud
   // divergence from json-rules-engine's stop() emulation (which would not throw).
-  expect(() => evaluate({ x: 1 })).toThrow(UndefinedFactError)
-  expect(evaluate({ x: 1, missing: 0 }).events.map((e) => e.type)).toEqual(['hit'])
+  expect(() => engine.run({ x: 1 })).toThrow(UndefinedFactError)
+  expect(engine.run({ x: 1, missing: 0 }).events.map((e) => e.type)).toEqual(['hit'])
 })
 
 // --- exported introspection helpers + structured error fields
@@ -374,7 +374,7 @@ test('KNOWN_OPERATORS / KNOWN_DECORATORS list the built-ins and are frozen', () 
 })
 test('UndefinedFactError exposes factId and code', () => {
   try {
-    compile([{ conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] }, event: ev('a') }])({})
+    compile([{ conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] }, event: ev('a') }]).run({})
   } catch (e) {
     expect(e).toBeInstanceOf(UndefinedFactError)
     expect((e as UndefinedFactError).factId).toBe('missing')

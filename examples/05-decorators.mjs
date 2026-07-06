@@ -2,7 +2,7 @@
 import { compile } from 'fast-json-rules-engine'
 
 const matches = (operator, value, f) =>
-  compile([{ conditions: { all: [{ fact: 'f', operator, value }] }, event: { type: 'ok' } }])({ f }).events.length > 0
+  compile([{ conditions: { all: [{ fact: 'f', operator, value }] }, event: { type: 'ok' } }]).run({ f }).events.length > 0
 
 const show = (operator, value, f) =>
   console.log(operator.padEnd(28), 'f =', JSON.stringify(f).padEnd(16), '→', matches(operator, value, f) ? 'match' : 'no match')

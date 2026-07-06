@@ -46,7 +46,7 @@ function outcome(compileFn: typeof compileSrc, rules: Rule[], opts: CompileOptio
     return { stage: 'compile', name: (e as Error)?.name ?? String(e) }
   }
   try {
-    const r = ev(structuredClone(f))
+    const r = ev.run(structuredClone(f))
     return { stage: 'ok', events: r.events, failureEvents: r.failureEvents, results: r.results, failureResults: r.failureResults }
   } catch (e) {
     return { stage: 'eval', name: (e as Error)?.name ?? String(e) }

@@ -6,8 +6,8 @@
  * no per-run promises, clones, or event machinery.
  *
  *   import { compile } from 'fast-json-rules-engine'
- *   const evaluate = compile(rules)
- *   const { events } = evaluate(facts)
+ *   const engine = compile(rules)
+ *   const { events } = engine.run(facts)
  *   const groupId = events[0]?.params?.groupId  // highest-priority match
  *
  * Independent project; not affiliated with json-rules-engine.

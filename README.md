@@ -63,9 +63,9 @@ const rules = [
 ]
 
 // Compile once (e.g. when your config loads), reuse for every request.
-const evaluate = compile(rules)
+const engine = compile(rules)
 
-const { events } = evaluate({ country: 'US', spend: 250 })
+const { events } = engine.run({ country: 'US', spend: 250 })
 // events -> [{ type: 'whale', params: { tier: 'gold' } },
 //            { type: 'payer', params: { tier: 'silver' } }]
 
@@ -73,7 +73,7 @@ const { events } = evaluate({ country: 'US', spend: 250 })
 const topTier = events[0]?.params?.tier // 'gold'
 ```
 
-`evaluate(facts)` returns:
+`engine.run(facts)` returns (synchronously — no Promise):
 
 ```ts
 {
@@ -105,8 +105,8 @@ If you only care about the highest-priority match (a common segmentation
 pattern), `stopOnFirstEvent` stops at the first hit and is dramatically faster:
 
 ```js
-const evaluate = compile(rules, { stopOnFirstEvent: true })
-const tier = evaluate(facts).events[0]?.params?.tier
+const engine = compile(rules, { stopOnFirstEvent: true })
+const tier = engine.run(facts).events[0]?.params?.tier
 ```
 
 ### Options
@@ -134,7 +134,7 @@ npm install jsonpath-plus  # use >=10.4.0 — older releases have a JSONPath RCE
 import { compile } from 'fast-json-rules-engine'
 import { JSONPath } from 'jsonpath-plus'
 
-const evaluate = compile(rules, {
+const engine = compile(rules, {
   pathResolver: (value, path) => JSONPath({ path, json: value, wrap: false }),
 })
 // now conditions like { fact: 'user', path: '$.profile.level', operator: 'greaterThan', value: 10 } work
@@ -185,7 +185,7 @@ What it deliberately does **not** do (the runtime dynamism it trades for speed):
 | Runtime rule mutation (`addRule` after run) | Rules are compiled up front; recompile to change them. |
 | Bundled JSONPath | No path engine is shipped; `path` requires an injected `pathResolver` (see [Paths](#paths)). |
 | Sub-condition priorities | A `priority` on a nested condition (json-rules-engine's within-rule evaluation ordering) is rejected at compile time — meaningless once compiled over static facts. |
-| `replaceFactsInEventParams` | Ignored — no runtime almanac; `event.params` is returned as authored. Resolve `{ fact }` references yourself after `evaluate()` (see [docs/MIGRATING.md](./docs/MIGRATING.md)). |
+| `replaceFactsInEventParams` | Ignored — no runtime almanac; `event.params` is returned as authored. Resolve `{ fact }` references yourself after `run()` (see [docs/MIGRATING.md](./docs/MIGRATING.md)). |
 
 Unknown operators, unsupported paths, malformed conditions, and circular named
 conditions **throw `CompileError` at compile time**, not silently at runtime.
@@ -239,8 +239,8 @@ async facts — pure overhead when facts are static values._
 ## Migrating from json-rules-engine
 
 Your rule JSON and `events` are compatible; swap `new Engine + addRule + await
-run` for `compile + evaluate` (synchronous), and read `events` instead of
-registering `on('success')` handlers. Runtime-dynamic features (async facts,
+run` for `compile()` then a synchronous `.run(facts)`, and read `events` instead
+of registering `on('success')` handlers. Runtime-dynamic features (async facts,
 event handlers, the conditions result tree, custom almanac) aren't replicated.
 
 **Full guide** — API mapping, a supported / one-line-change / unsupported
@@ -259,12 +259,13 @@ no per-run allocation of promises, almanacs, or cloned condition trees.
 
 All exports from `fast-json-rules-engine`:
 
-- **`compile(rules, options?)`** → `(facts) => { events, failureEvents, results, failureResults }`.
-  `rules` is a rule object or an array; see [Options](#options).
+- **`compile(rules, options?)`** → a compiled engine `{ run }`. Call
+  **`.run(facts)`** → `{ events, failureEvents, results, failureResults }`
+  (synchronous). `rules` is a rule object or an array; see [Options](#options).
 - **`CompileError`** — thrown at compile time (unknown operator, malformed
   condition, uninjected `path`, cycle, over-deep nesting). Carries
   `code: 'COMPILE_ERROR'` and, for a rule-scoped error, `ruleIndex`.
-- **`UndefinedFactError`** — thrown at evaluate time when a referenced fact is
+- **`UndefinedFactError`** — thrown by `run()` when a referenced fact is
   absent and `allowUndefinedFacts` is false. Carries `code: 'UNDEFINED_FACT'` and
   `factId`.
 - **`KNOWN_OPERATORS`, `KNOWN_DECORATORS`** — frozen `readonly string[]` of the
@@ -285,7 +286,7 @@ import { compile } from 'fast-json-rules-engine'
 import type { Rule } from 'fast-json-rules-engine'
 
 const rules: Rule[] = [/* ... */]
-const evaluate = compile(rules)
+const engine = compile(rules)
 ```
 
 ## Security

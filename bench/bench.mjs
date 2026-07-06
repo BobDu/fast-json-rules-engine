@@ -97,14 +97,14 @@ async function main() {
   // Sanity: full-run events match json-rules-engine on every facts object, and
   // first-match modes (ours vs engine.stop()) agree — so the comparison is fair.
   for (const f of FACTS_POOL) {
-    const mine = evaluate(f).events.map((e) => e.params.groupId)
+    const mine = evaluate.run(f).events.map((e) => e.params.groupId)
     const theirs = (await reused.run(f)).events.map((e) => e.params.groupId)
     if (JSON.stringify(mine) !== JSON.stringify(theirs)) { console.error('MISMATCH', mine, theirs); process.exit(1) }
   }
-  const myStop = evaluateStop(FACTS_POOL[0]).events.map((e) => e.params.groupId)
+  const myStop = evaluateStop.run(FACTS_POOL[0]).events.map((e) => e.params.groupId)
   const theirStop = (await reusedStop.run(FACTS_POOL[0])).events.map((e) => e.params.groupId)
   if (JSON.stringify(myStop) !== JSON.stringify(theirStop)) { console.error('STOP MISMATCH', myStop, theirStop); process.exit(1) }
-  const sampleMatches = evaluate(FACTS_POOL[0]).events.length
+  const sampleMatches = evaluate.run(FACTS_POOL[0]).events.length
 
   const results = []
   results.push(await median('json-rules-engine: new Engine + addRule + run (per eval)', 3000, async (i) => {
@@ -117,13 +117,13 @@ async function main() {
     await reusedStop.run(F(i))
   }, true))
   results.push(await median('fast-json-rules-engine: compile-per-eval', 20000, (i) => {
-    compile(rules)(F(i))
+    compile(rules).run(F(i))
   }, false))
-  results.push(await median('fast-json-rules-engine: compiled once, evaluate', 200000, (i) => {
-    evaluate(F(i))
+  results.push(await median('fast-json-rules-engine: compiled once, run', 200000, (i) => {
+    evaluate.run(F(i))
   }, false))
   results.push(await median('fast-json-rules-engine: compiled once, stopOnFirstEvent', 200000, (i) => {
-    evaluateStop(F(i))
+    evaluateStop.run(F(i))
   }, false))
 
   const base = results[1].us // reused full-run json-rules-engine as the 1x baseline

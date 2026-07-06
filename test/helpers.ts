@@ -72,7 +72,7 @@ function evaluateOwn(
   options: CompileOptions,
 ): Outcome {
   try {
-    const r = compile(rules, options)(facts)
+    const r = compile(rules, options).run(facts)
     return {
       threw: false,
       events: normEvents(r.events),

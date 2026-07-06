@@ -14,11 +14,12 @@ import type {
 // `tsc -p tsconfig.test.json` (the typecheck script); at runtime they are no-ops.
 
 test('public type surface', () => {
-  // compile accepts a single rule or an array, and returns a callable evaluator
+  // compile accepts a single rule or an array, and returns a compiled engine
+  // whose synchronous `run(facts)` produces the result.
   expectTypeOf(compile).parameter(0).toEqualTypeOf<Rule | Rule[]>()
   expectTypeOf(compile).parameter(1).toEqualTypeOf<CompileOptions | undefined>()
   expectTypeOf(compile).returns.toEqualTypeOf<CompiledRules>()
-  expectTypeOf<CompiledRules>().toEqualTypeOf<(facts: Facts) => EngineResult>()
+  expectTypeOf<CompiledRules['run']>().toEqualTypeOf<(facts: Facts) => EngineResult>()
 
   // EngineResult exposes the four output surfaces
   expectTypeOf<EngineResult['events']>().toEqualTypeOf<Event[]>()
@@ -36,9 +37,9 @@ test('public type surface', () => {
     country: string
     spend: number
   }
-  const evaluate = compile([{ conditions: { all: [] }, event: { type: 't' } }])
+  const engine = compile([{ conditions: { all: [] }, event: { type: 't' } }])
   const myFacts: MyFacts = { country: 'US', spend: 10 }
-  expectTypeOf(evaluate(myFacts)).toEqualTypeOf<EngineResult>()
+  expectTypeOf(engine.run(myFacts)).toEqualTypeOf<EngineResult>()
 
   expectTypeOf<CompileOptions['allowUndefinedFacts']>().toEqualTypeOf<boolean | undefined>()
   expectTypeOf<CompileOptions['allowUndefinedConditions']>().toEqualTypeOf<boolean | undefined>()

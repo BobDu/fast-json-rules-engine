@@ -23,17 +23,17 @@ const rules = [
 ]
 
 const evaluate = compile(rules)
-const { events } = evaluate({ country: 'US', spend: 250, level: 80 })
+const { events } = evaluate.run({ country: 'US', spend: 250, level: 80 })
 assert.deepStrictEqual(events.map((e) => e.params.tier), ['gold', 'silver'])
 
 const stop = compile(rules, { stopOnFirstEvent: true })
-assert.strictEqual(stop({ country: 'US', spend: 250, level: 80 }).events.length, 1)
+assert.strictEqual(stop.run({ country: 'US', spend: 250, level: 80 }).events.length, 1)
 
-assert.throws(() => evaluate({ country: 'US', spend: 250 }), UndefinedFactError)
+assert.throws(() => evaluate.run({ country: 'US', spend: 250 }), UndefinedFactError)
 assert.throws(() => compile([{ conditions: { all: [{ fact: 'x', operator: 'nope', value: 1 }] }, event: { type: 't' } }]), CompileError)
 
 const dec = compile([{ conditions: { all: [{ fact: 'xs', operator: 'everyFact:greaterThan', value: 0 }] }, event: { type: 'ok' } }])
-assert.strictEqual(dec({ xs: [1, 2, 3] }).events.length, 1)
-assert.strictEqual(dec({ xs: [1, -2, 3] }).events.length, 0)
+assert.strictEqual(dec.run({ xs: [1, 2, 3] }).events.length, 1)
+assert.strictEqual(dec.run({ xs: [1, -2, 3] }).events.length, 0)
 
 console.log(`Node ${process.version}: dist ESM smoke OK`)

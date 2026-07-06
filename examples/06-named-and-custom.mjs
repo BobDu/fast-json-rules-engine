@@ -5,8 +5,8 @@ import { compile } from 'fast-json-rules-engine'
 const dynamic = compile([
   { conditions: { all: [{ fact: 'score', operator: 'greaterThan', value: { fact: 'threshold' } }] }, event: { type: 'pass' } },
 ])
-console.log(dynamic({ score: 80, threshold: 60 }).events.map((e) => e.type)) // [ 'pass' ]
-console.log(dynamic({ score: 50, threshold: 60 }).events.map((e) => e.type)) // []
+console.log(dynamic.run({ score: 80, threshold: 60 }).events.map((e) => e.type)) // [ 'pass' ]
+console.log(dynamic.run({ score: 50, threshold: 60 }).events.map((e) => e.type)) // []
 
 // (b) a named condition, referenced by name and reusable across rules
 const withNamed = compile(
@@ -17,12 +17,12 @@ const withNamed = compile(
     },
   },
 )
-console.log(withNamed({ spend: 2000, vip: false, active: true }).events.map((e) => e.type)) // [ 'vipWhale' ]
+console.log(withNamed.run({ spend: 2000, vip: false, active: true }).events.map((e) => e.type)) // [ 'vipWhale' ]
 
 // (c) a custom operator
 const withCustom = compile(
   [{ conditions: { all: [{ fact: 'email', operator: 'endsWith', value: '@vip.com' }] }, event: { type: 'vipDomain' } }],
   { operators: { endsWith: (a, b) => typeof a === 'string' && a.endsWith(b) } },
 )
-console.log(withCustom({ email: 'a@vip.com' }).events.map((e) => e.type)) // [ 'vipDomain' ]
-console.log(withCustom({ email: 'a@x.com' }).events.map((e) => e.type)) //  []
+console.log(withCustom.run({ email: 'a@vip.com' }).events.map((e) => e.type)) // [ 'vipDomain' ]
+console.log(withCustom.run({ email: 'a@x.com' }).events.map((e) => e.type)) //  []

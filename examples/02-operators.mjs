@@ -14,10 +14,10 @@ const rules = [
   { conditions: { all: [{ fact: 'roles', operator: 'doesNotContain', value: 'banned' }] }, event: { type: 'doesNotContain' } },
 ]
 
-const evaluate = compile(rules)
+const engine = compile(rules)
 const facts = { age: 18, country: 'US', roles: ['user', 'admin'] }
 
-console.log(evaluate(facts).events.map((e) => e.type))
+console.log(engine.run(facts).events.map((e) => e.type))
 // → all ten fire for these facts (same-priority rules keep input order):
 // [ 'equal', 'notEqual', 'greaterThan', 'greaterThanInclusive', 'lessThan',
 //   'lessThanInclusive', 'in', 'notIn', 'contains', 'doesNotContain' ]

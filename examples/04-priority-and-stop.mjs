@@ -11,7 +11,7 @@ const rules = [
 const facts = { spend: 5000 }
 
 // Default: all matches, highest priority first.
-console.log(compile(rules)(facts).events.map((e) => e.type)) // [ 'gold', 'silver', 'bronze' ]
+console.log(compile(rules).run(facts).events.map((e) => e.type)) // [ 'gold', 'silver', 'bronze' ]
 
 // stopOnFirstEvent: only the single top-priority match (fastest).
-console.log(compile(rules, { stopOnFirstEvent: true })(facts).events[0].type) // 'gold'
+console.log(compile(rules, { stopOnFirstEvent: true }).run(facts).events[0].type) // 'gold'

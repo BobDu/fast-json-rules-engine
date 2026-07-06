@@ -9,16 +9,16 @@ same.
 ## Core model
 
 Rules are near-static; facts change every call. So the pattern is always
-**compile once, evaluate many**:
+**compile once, run many**:
 
 ```js
 import { compile } from 'fast-json-rules-engine'
 
-const evaluate = compile(rules, options) // compile once (e.g. at config load)
-const result = evaluate(facts)           // call per request; synchronous
+const engine = compile(rules, options) // compile once (e.g. at config load)
+const result = engine.run(facts)           // call per request; synchronous
 ```
 
-`evaluate(facts)` returns:
+`engine.run(facts)` returns:
 
 ```js
 {
@@ -30,13 +30,13 @@ const result = evaluate(facts)           // call per request; synchronous
 ```
 
 ```js
-const evaluate = compile([
+const engine = compile([
   { conditions: { all: [{ fact: 'age', operator: 'greaterThanInclusive', value: 18 }] }, event: { type: 'adult', params: { tier: 'A' } } },
 ])
 
-evaluate({ age: 20 }).events // → [{ type: 'adult', params: { tier: 'A' } }]
-evaluate({ age: 10 }).events // → []
-evaluate({ age: 10 }).failureEvents.map((e) => e.type) // → ['adult']
+engine.run({ age: 20 }).events // → [{ type: 'adult', params: { tier: 'A' } }]
+engine.run({ age: 10 }).events // → []
+engine.run({ age: 10 }).failureEvents.map((e) => e.type) // → ['adult']
 ```
 
 Most callers only need `events`; the highest-priority match is `events[0]`.
@@ -77,7 +77,7 @@ A rule's `conditions` root must be `all`, `any`, `not`, or a condition reference
 (never a bare leaf). They nest to any depth:
 
 ```js
-const evaluate = compile([
+const engine = compile([
   {
     conditions: {
       all: [
@@ -93,9 +93,9 @@ const evaluate = compile([
   },
 ])
 
-evaluate({ country: 'US', spend: 120, vip: false, banned: false }).events.map((e) => e.type) // → ['target']
-evaluate({ country: 'US', spend: 10, vip: true, banned: false }).events.map((e) => e.type)   // → ['target']
-evaluate({ country: 'US', spend: 120, vip: false, banned: true }).events.map((e) => e.type)  // → []
+engine.run({ country: 'US', spend: 120, vip: false, banned: false }).events.map((e) => e.type) // → ['target']
+engine.run({ country: 'US', spend: 10, vip: true, banned: false }).events.map((e) => e.type)   // → ['target']
+engine.run({ country: 'US', spend: 120, vip: false, banned: true }).events.map((e) => e.type)  // → []
 ```
 
 An empty `all` **and** an empty `any` both evaluate to `true` (deliberately
@@ -113,12 +113,12 @@ const rules = [
   { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: { type: 'mid' }, priority: 50 },
 ]
 
-compile(rules)({ x: 1 }).events.map((e) => e.type)                        // → ['high', 'mid', 'low']
-compile(rules, { stopOnFirstEvent: true })({ x: 1 }).events.map((e) => e.type) // → ['high']
+compile(rules).run({ x: 1 }).events.map((e) => e.type)                        // → ['high', 'mid', 'low']
+compile(rules, { stopOnFirstEvent: true }).run({ x: 1 }).events.map((e) => e.type) // → ['high']
 ```
 
 `stopOnFirstEvent` stops at the first (highest-priority) match — the fastest
-usage for "pick the top matching tier". Read it as `evaluate(facts).events[0]`.
+usage for "pick the top matching tier". Read it as `engine.run(facts).events[0]`.
 
 ## Value as a fact reference
 
@@ -126,12 +126,12 @@ usage for "pick the top matching tier". Read it as `evaluate(facts).events[0]`.
 facts at runtime:
 
 ```js
-const evaluate = compile([
+const engine = compile([
   { conditions: { all: [{ fact: 'score', operator: 'greaterThan', value: { fact: 'threshold' } }] }, event: { type: 'pass' } },
 ])
 
-evaluate({ score: 80, threshold: 60 }).events.map((e) => e.type) // → ['pass']
-evaluate({ score: 50, threshold: 60 }).events.map((e) => e.type) // → []
+engine.run({ score: 80, threshold: 60 }).events.map((e) => e.type) // → ['pass']
+engine.run({ score: 50, threshold: 60 }).events.map((e) => e.type) // → []
 ```
 
 ## Operator decorators (array quantifiers + transforms)
@@ -160,7 +160,7 @@ Name a reusable condition and reference it with `{ condition: 'name' }`, supplie
 via `options.conditions`:
 
 ```js
-const evaluate = compile(
+const engine = compile(
   [{ conditions: { all: [{ condition: 'isWhale' }, { fact: 'active', operator: 'equal', value: true }] }, event: { type: 'vipWhale' } }],
   {
     conditions: {
@@ -169,8 +169,8 @@ const evaluate = compile(
   },
 )
 
-evaluate({ spend: 2000, active: true, vip: false }).events.map((e) => e.type) // → ['vipWhale']
-evaluate({ spend: 10, vip: true, active: false }).events.map((e) => e.type)   // → []
+engine.run({ spend: 2000, active: true, vip: false }).events.map((e) => e.type) // → ['vipWhale']
+engine.run({ spend: 10, vip: true, active: false }).events.map((e) => e.type)   // → []
 ```
 
 Named conditions are inlined at compile time (with circular-reference detection).
@@ -185,13 +185,13 @@ When the ten built-ins aren't enough, pass `(factValue, value) => boolean` via
 `options.operators`:
 
 ```js
-const evaluate = compile(
+const engine = compile(
   [{ conditions: { all: [{ fact: 'email', operator: 'endsWith', value: '@vip.com' }] }, event: { type: 'vipDomain' } }],
   { operators: { endsWith: (a, b) => typeof a === 'string' && a.endsWith(b) } },
 )
 
-evaluate({ email: 'a@vip.com' }).events.map((e) => e.type) // → ['vipDomain']
-evaluate({ email: 'a@x.com' }).events.map((e) => e.type)   // → []
+engine.run({ email: 'a@vip.com' }).events.map((e) => e.type) // → ['vipDomain']
+engine.run({ email: 'a@x.com' }).events.map((e) => e.type)   // → []
 ```
 
 This is also the clean way to express array quantifiers without decorators, e.g.
@@ -204,8 +204,8 @@ Controls what happens when a rule references a fact absent from `facts`:
 ```js
 const rules = [{ conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] }, event: { type: 'm' } }]
 
-compile(rules)({})                               // → throws UndefinedFactError: "Undefined fact: missing"
-compile(rules, { allowUndefinedFacts: true })({}) // → { events: [], ... }  (absent treated as undefined)
+compile(rules).run({})                               // → throws UndefinedFactError: "Undefined fact: missing"
+compile(rules, { allowUndefinedFacts: true }).run({}) // → { events: [], ... }  (absent treated as undefined)
 ```
 
 The default (`false`) fails loud so a typo or missing fact never silently
@@ -224,18 +224,18 @@ import { JSONPath } from 'jsonpath-plus'
 
 const jp = (value, path) => JSONPath({ path, json: value, wrap: false })
 
-const evaluate = compile(
+const engine = compile(
   [{ conditions: { all: [{ fact: 'user', path: '$.profile.level', operator: 'greaterThan', value: 10 }] }, event: { type: 'senior' } }],
   { pathResolver: jp },
 )
 
-evaluate({ user: { profile: { level: 20 } } }).events.map((e) => e.type) // → ['senior']
+engine.run({ user: { profile: { level: 20 } } }).events.map((e) => e.type) // → ['senior']
 
 // full JSONPath (array index) works through the injected resolver:
 compile(
   [{ conditions: { all: [{ fact: 'o', path: '$.items[0].id', operator: 'equal', value: 7 }] }, event: { type: 'first' } }],
   { pathResolver: jp },
-)({ o: { items: [{ id: 7 }] } }).events.map((e) => e.type) // → ['first']
+).run({ o: { items: [{ id: 7 }] } }).events.map((e) => e.type) // → ['first']
 ```
 
 A rule that uses `path` without a `pathResolver` throws `CompileError` at compile
