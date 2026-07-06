@@ -351,7 +351,7 @@ export function compile(
   // ignore the option; resolve such references after evaluate() instead.
   if ((options as { replaceFactsInEventParams?: unknown }).replaceFactsInEventParams) {
     throw new CompileError(
-      'options.replaceFactsInEventParams is not supported: this engine has no runtime almanac to resolve fact references inside event params. Resolve them after evaluate(), or remove the option.',
+      'options.replaceFactsInEventParams is not supported: this engine has no runtime almanac to resolve fact references inside event params. Remove the option; if your event params use { fact } references, resolve them yourself after evaluate().',
     )
   }
   const ruleList = Array.isArray(rules) ? rules : [rules]
