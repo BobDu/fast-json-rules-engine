@@ -123,14 +123,11 @@ test('named condition reference is inlined', () =>
 
 // --- stopOnFirstEvent (our extension)
 test('stopOnFirstEvent returns only the highest-priority match', () => {
-  const engine = compile(
-    [
-      { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('low'), priority: 1 },
-      { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('high'), priority: 100 },
-    ],
-    { stopOnFirstEvent: true },
-  )
-  const { events } = engine.run({ x: 1 })
+  const engine = compile([
+    { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('low'), priority: 1 },
+    { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('high'), priority: 100 },
+  ])
+  const { events } = engine.run({ x: 1 }, { stopOnFirstEvent: true })
   expect(events.length).toBe(1)
   expect(events[0].type).toBe('high')
 })
@@ -316,18 +313,15 @@ test('returned event params aliases the source rule (documented residual, read-o
 
 // --- stopOnFirstEvent still enforces the global undefined-fact pre-check
 test('stopOnFirstEvent still requires all referenced facts (global pre-check)', () => {
-  const engine = compile(
-    [
-      { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('hit'), priority: 2 },
-      { conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] }, event: ev('lo'), priority: 1 },
-    ],
-    { stopOnFirstEvent: true },
-  )
+  const engine = compile([
+    { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: ev('hit'), priority: 2 },
+    { conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] }, event: ev('lo'), priority: 1 },
+  ])
   // The union pre-check runs before any rule, so a missing fact throws even though
   // the higher-priority rule would match and stop first — a deliberate fail-loud
   // divergence from json-rules-engine's stop() emulation (which would not throw).
-  expect(() => engine.run({ x: 1 })).toThrow(UndefinedFactError)
-  expect(engine.run({ x: 1, missing: 0 }).events.map((e) => e.type)).toEqual(['hit'])
+  expect(() => engine.run({ x: 1 }, { stopOnFirstEvent: true })).toThrow(UndefinedFactError)
+  expect(engine.run({ x: 1, missing: 0 }, { stopOnFirstEvent: true }).events.map((e) => e.type)).toEqual(['hit'])
 })
 
 // --- exported introspection helpers + structured error fields

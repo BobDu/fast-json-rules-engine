@@ -112,12 +112,14 @@ const rules = [
   { conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }] }, event: { type: 'mid' }, priority: 50 },
 ]
 
-compile(rules).run({ x: 1 }).events.map((e) => e.type)                        // → ['high', 'mid', 'low']
-compile(rules, { stopOnFirstEvent: true }).run({ x: 1 }).events.map((e) => e.type) // → ['high']
+compile(rules).run({ x: 1 }).events.map((e) => e.type)                          // → ['high', 'mid', 'low']
+compile(rules).run({ x: 1 }, { stopOnFirstEvent: true }).events.map((e) => e.type) // → ['high']
 ```
 
-`stopOnFirstEvent` stops at the first (highest-priority) match — the fastest
-usage for "pick the top matching tier". Read it as `engine.run(facts).events[0]`.
+`stopOnFirstEvent` is a **run** option (`run(facts, { stopOnFirstEvent: true })`),
+not a compile option — the same compiled engine can run either way. It stops at
+the first (highest-priority) match, the fastest usage for "pick the top matching
+tier". Read it as `engine.run(facts, { stopOnFirstEvent: true }).events[0]`.
 
 ## Value as a fact reference
 

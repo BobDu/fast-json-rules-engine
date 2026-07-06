@@ -31,6 +31,7 @@ export type {
   PathResolver,
   Rule,
   RuleProperties,
+  RunOptions,
   TopLevelCondition,
   ValueReference,
 } from './types'

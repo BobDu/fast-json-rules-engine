@@ -26,8 +26,8 @@ const evaluate = compile(rules)
 const { events } = evaluate.run({ country: 'US', spend: 250, level: 80 })
 assert.deepStrictEqual(events.map((e) => e.params.tier), ['gold', 'silver'])
 
-const stop = compile(rules, { stopOnFirstEvent: true })
-assert.strictEqual(stop.run({ country: 'US', spend: 250, level: 80 }).events.length, 1)
+const stop = compile(rules)
+assert.strictEqual(stop.run({ country: 'US', spend: 250, level: 80 }, { stopOnFirstEvent: true }).events.length, 1)
 
 assert.throws(() => evaluate.run({ country: 'US', spend: 250 }), UndefinedFactError)
 assert.throws(() => compile([{ conditions: { all: [{ fact: 'x', operator: 'nope', value: 1 }] }, event: { type: 't' } }]), CompileError)

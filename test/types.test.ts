@@ -7,6 +7,7 @@ import type {
   Event,
   Facts,
   Rule,
+  RunOptions,
 } from '../src/index'
 
 // Type-level contract over the public .d.ts surface. These are checked by
@@ -14,11 +15,12 @@ import type {
 
 test('public type surface', () => {
   // compile accepts a single rule or an array, and returns a compiled engine
-  // whose synchronous `run(facts)` produces the result.
+  // whose synchronous `run(facts, options?)` produces the result.
   expectTypeOf(compile).parameter(0).toEqualTypeOf<Rule | Rule[]>()
   expectTypeOf(compile).parameter(1).toEqualTypeOf<CompileOptions | undefined>()
   expectTypeOf(compile).returns.toEqualTypeOf<CompiledRules>()
-  expectTypeOf<CompiledRules['run']>().toEqualTypeOf<(facts: Facts) => EngineResult>()
+  expectTypeOf<CompiledRules['run']>().toEqualTypeOf<(facts: Facts, options?: RunOptions) => EngineResult>()
+  expectTypeOf<RunOptions['stopOnFirstEvent']>().toEqualTypeOf<boolean | undefined>()
 
   // EngineResult exposes only events (matched rules, highest priority first)
   expectTypeOf<EngineResult['events']>().toEqualTypeOf<Event[]>()

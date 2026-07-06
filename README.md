@@ -103,11 +103,12 @@ const tier = (events[0] as Event<{ tier: string }>).params?.tier // string | und
 ### First-match only
 
 If you only care about the highest-priority match (a common segmentation
-pattern), `stopOnFirstEvent` stops at the first hit and is dramatically faster:
+pattern), pass `{ stopOnFirstEvent: true }` to `run()` — it stops at the first
+hit and is dramatically faster:
 
 ```js
-const engine = compile(rules, { stopOnFirstEvent: true })
-const tier = engine.run(facts).events[0]?.params?.tier
+const engine = compile(rules)
+const tier = engine.run(facts, { stopOnFirstEvent: true }).events[0]?.params?.tier
 ```
 
 ### Options
@@ -115,10 +116,12 @@ const tier = engine.run(facts).events[0]?.params?.tier
 | Option | Default | Description |
 | --- | --- | --- |
 | `allowUndefinedFacts` | `false` | When `false`, evaluating a rule that references an absent fact throws `UndefinedFactError` (matches json-rules-engine). When `true`, an absent fact is treated as `undefined`. |
-| `stopOnFirstEvent` | `false` | Stop after the first (highest-priority) matching rule. |
 | `operators` | – | Custom operators: `{ name: (factValue, value) => boolean }`. |
 | `conditions` | – | Named conditions referenced via `{ condition: 'name' }`. |
 | `pathResolver` | – | `(value, path) => resolved`. Required to use `path` — see [Paths](#paths). |
+
+Those are **compile** options. `run(facts, options?)` takes one **run** option,
+`stopOnFirstEvent` (see [First-match only](#first-match-only)).
 
 ### Paths
 
@@ -261,8 +264,8 @@ no per-run allocation of promises, almanacs, or cloned condition trees.
 All exports from `fast-json-rules-engine`:
 
 - **`compile(rules, options?)`** → a compiled engine `{ run }`. Call
-  **`.run(facts)`** → `{ events }` (synchronous). `rules` is a rule object or an
-  array; see [Options](#options).
+  **`.run(facts, options?)`** → `{ events }` (synchronous). `rules` is a rule
+  object or an array; see [Options](#options). The run option is `stopOnFirstEvent`.
 - **`CompileError`** — thrown at compile time (unknown operator, malformed
   condition, uninjected `path`, cycle, over-deep nesting). Carries
   `code: 'COMPILE_ERROR'` and, for a rule-scoped error, `ruleIndex`.
@@ -273,7 +276,7 @@ All exports from `fast-json-rules-engine`:
   built-in operator / decorator names, handy for validating rule documents before
   compiling.
 - **Types:** `Rule` (also exported as `RuleProperties`), `CompileOptions`,
-  `CompiledRules`, `Event<Params>`, `EngineResult`, `Facts`,
+  `RunOptions`, `CompiledRules`, `Event<Params>`, `EngineResult`, `Facts`,
   `Condition` / `TopLevelCondition` / `LeafCondition` / `AllCondition` /
   `AnyCondition` / `NotCondition` / `ConditionReference` / `ValueReference`,
   `OperatorFn`, `PathResolver`.

@@ -7,7 +7,9 @@ import path from 'node:path'
 import { readFileSync } from 'node:fs'
 import { test as vitest } from 'vitest'
 import { compile as compileSrc } from '../src/index'
-import type { CompileOptions, Rule, Facts } from '../src/index'
+import type { CompileOptions, Rule, Facts, RunOptions } from '../src/index'
+
+type TestOptions = CompileOptions & RunOptions
 import { rulesTied, rulesDistinct, rulesWithRefTied, namedConditions, facts, CUSTOM_OPS, jp } from './arbitraries'
 
 // Layer 2 contract: the SHIPPED artifact (dist CJS + ESM) must behave identically
@@ -38,7 +40,7 @@ type Outcome =
 // throw at either compile or evaluate time — so any divergence (including "one
 // throws, the other doesn't") is caught. structuredClone isolates each engine's
 // run from mutation by the others.
-function outcome(compileFn: typeof compileSrc, rules: Rule[], opts: CompileOptions, f: Facts): Outcome {
+function outcome(compileFn: typeof compileSrc, rules: Rule[], opts: TestOptions, f: Facts): Outcome {
   let ev: ReturnType<typeof compileSrc>
   try {
     ev = compileFn(structuredClone(rules), opts)
@@ -46,14 +48,14 @@ function outcome(compileFn: typeof compileSrc, rules: Rule[], opts: CompileOptio
     return { stage: 'compile', name: (e as Error)?.name ?? String(e) }
   }
   try {
-    const r = ev.run(structuredClone(f))
+    const r = ev.run(structuredClone(f), { stopOnFirstEvent: opts.stopOnFirstEvent })
     return { stage: 'ok', events: r.events }
   } catch (e) {
     return { stage: 'eval', name: (e as Error)?.name ?? String(e) }
   }
 }
 
-function expectDistMatchesSrc(rules: Rule[], opts: CompileOptions, f: Facts): void {
+function expectDistMatchesSrc(rules: Rule[], opts: TestOptions, f: Facts): void {
   const src = outcome(compileSrc, rules, opts, f)
   expect(outcome(compileCjs, rules, opts, f), 'cjs vs src').toEqual(src)
   expect(outcome(compileEsm, rules, opts, f), 'esm vs src').toEqual(src)

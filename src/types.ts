@@ -134,17 +134,25 @@ export interface CompileOptions {
    * to `false` instead of throwing (matches json-rules-engine). Default false.
    */
   allowUndefinedConditions?: boolean
-  /** Stop after the first (highest-priority) matching rule. Default false. */
-  stopOnFirstEvent?: boolean
   /** Override how `path` is resolved into a fact value. */
   pathResolver?: PathResolver
+}
+
+/**
+ * Per-run options for {@link CompiledRules.run}. Named after json-rules-engine's
+ * `RunOptions`; the fields differ (upstream carries an `almanac`, unsupported here).
+ */
+export interface RunOptions {
+  /** Stop after the first (highest-priority) matching rule. Default false. */
+  stopOnFirstEvent?: boolean
 }
 
 /** A compiled rule set. Call {@link CompiledRules.run} with facts to evaluate. */
 export interface CompiledRules {
   /**
    * Evaluate the compiled rules against a facts object. Synchronous: returns the
-   * result directly (not a Promise), so `await` is unnecessary but harmless.
+   * result directly (not a Promise), so `await` is unnecessary but harmless. Pass
+   * `{ stopOnFirstEvent: true }` to stop at the first (highest-priority) match.
    */
-  run(facts: Facts): EngineResult
+  run(facts: Facts, options?: RunOptions): EngineResult
 }

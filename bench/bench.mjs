@@ -89,7 +89,7 @@ function makeReusedEngine() {
 
 async function main() {
   const evaluate = compile(rules)
-  const evaluateStop = compile(rules, { stopOnFirstEvent: true })
+  const STOP = { stopOnFirstEvent: true }
   const reused = makeReusedEngine()
   const reusedStop = makeReusedEngine()
   reusedStop.on('success', () => reusedStop.stop())
@@ -101,7 +101,7 @@ async function main() {
     const theirs = (await reused.run(f)).events.map((e) => e.params.groupId)
     if (JSON.stringify(mine) !== JSON.stringify(theirs)) { console.error('MISMATCH', mine, theirs); process.exit(1) }
   }
-  const myStop = evaluateStop.run(FACTS_POOL[0]).events.map((e) => e.params.groupId)
+  const myStop = evaluate.run(FACTS_POOL[0], STOP).events.map((e) => e.params.groupId)
   const theirStop = (await reusedStop.run(FACTS_POOL[0])).events.map((e) => e.params.groupId)
   if (JSON.stringify(myStop) !== JSON.stringify(theirStop)) { console.error('STOP MISMATCH', myStop, theirStop); process.exit(1) }
   const sampleMatches = evaluate.run(FACTS_POOL[0]).events.length
@@ -123,7 +123,7 @@ async function main() {
     evaluate.run(F(i))
   }, false))
   results.push(await median('fast-json-rules-engine: compiled once, stopOnFirstEvent', 200000, (i) => {
-    evaluateStop.run(F(i))
+    evaluate.run(F(i), STOP)
   }, false))
 
   const base = results[1].us // reused full-run json-rules-engine as the 1x baseline

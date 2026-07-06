@@ -13,6 +13,7 @@ import type {
   NotCondition,
   PathResolver,
   Rule,
+  RunOptions,
 } from './types'
 
 type Predicate = (facts: Facts) => boolean
@@ -425,12 +426,12 @@ export function compile(
     .sort((a, b) => b.rule.priority - a.rule.priority || a.index - b.index)
     .map((entry) => entry.rule)
 
-  const stopOnFirstEvent = options.stopOnFirstEvent ?? false
   const allowUndefinedFacts = ctx.allowUndefinedFacts
   const count = order.length
   const requiredCount = requiredFacts.length
 
-  function run(facts: Facts): EngineResult {
+  function run(facts: Facts, runOptions?: RunOptions): EngineResult {
+    const stopOnFirstEvent = runOptions?.stopOnFirstEvent ?? false
     // Global undefined-fact pre-check (see compile above): any absent referenced
     // fact throws before evaluation, so short-circuit / stopOnFirstEvent cannot
     // hide it. Skipped when allowUndefinedFacts is true.
