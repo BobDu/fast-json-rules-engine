@@ -185,7 +185,7 @@ What it deliberately does **not** do (the runtime dynamism it trades for speed):
 | Runtime rule mutation (`addRule` after run) | Rules are compiled up front; recompile to change them. |
 | Bundled JSONPath | No path engine is shipped; `path` requires an injected `pathResolver` (see [Paths](#paths)). |
 | Sub-condition priorities | A `priority` on a nested condition (json-rules-engine's within-rule evaluation ordering) is rejected at compile time — meaningless once compiled over static facts. |
-| `replaceFactsInEventParams` | No runtime almanac to resolve `{ fact }` references inside event params; rejected at compile time. Resolve them yourself after `evaluate()`. |
+| `replaceFactsInEventParams` | Ignored — no runtime almanac; `event.params` is returned as authored. Resolve `{ fact }` references yourself after `evaluate()` (see [docs/MIGRATING.md](./docs/MIGRATING.md)). |
 
 Unknown operators, unsupported paths, malformed conditions, and circular named
 conditions **throw `CompileError` at compile time**, not silently at runtime.

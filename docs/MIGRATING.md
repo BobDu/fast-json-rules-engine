@@ -101,12 +101,39 @@ scope. Most have a simple workaround given static facts.
 | **Fact dependency** (a fact derived from other facts) | Same — derive it up front and pass it in. |
 | **Sub-condition / fact priorities** (a `priority` on a nested condition) | Not supported; rejected at compile time. Rule-level `priority` is supported. |
 | **Rule chaining via events/almanac** | Read the returned `events`, build the next `facts`, and call `evaluate` again — you orchestrate the chain explicitly. |
-| **Facts in event params** (`replaceFactsInEventParams`) | Passing this option throws `CompileError` (no runtime almanac to resolve it). `event.params` is otherwise returned as authored — fill dynamic values yourself after reading `events`. |
+| **Facts in event params** (`replaceFactsInEventParams`) | Ignored — `event.params` is returned as authored. Resolve `{ fact }` references yourself after `evaluate()` ([example below](#resolving-fact-references-in-event-params)). |
 | **Fact params on a condition** (`{ fact, params }`) | Only parameterize dynamic fact functions (unsupported); ignored for static facts, exactly as json-rules-engine does. |
 | **Event handlers** (`engine.on(...)`) | Read `events` / `failureEvents` from the result. |
 | **Custom almanac** | No almanac concept; there's nothing to customize. |
 | **Runtime rule mutation** (`addRule` after a run) | Rules are compiled up front; recompile to change them. |
 | **The evaluated-conditions tree in `results`** | `results` carry `{ result, event, priority, name }` — not the per-condition tree json-rules-engine deep-clones each run (that clone is the main cost avoided here). |
+
+### Resolving fact references in event params
+
+json-rules-engine's non-default `replaceFactsInEventParams` option rewrites
+`{ fact: 'x' }`-shaped values inside a matched event's `params` with the resolved
+fact value. This engine has no runtime almanac, so **the option is ignored** and
+`event.params` comes back exactly as authored. If you relied on it, resolve the
+references yourself after `evaluate()`. Returned events are read-only (shared
+across evaluations), so build resolved copies rather than mutating them in place:
+
+```js
+const isFactRef = (v) => v !== null && typeof v === 'object' && 'fact' in v
+
+const { events } = evaluate(facts)
+const resolved = events.map((e) => ({
+  type: e.type,
+  params:
+    e.params &&
+    Object.fromEntries(
+      Object.entries(e.params).map(([k, v]) => [k, isFactRef(v) ? facts[v.fact] : v]),
+    ),
+}))
+// event.params { userId: { fact: 'id' } }  ->  resolved params { userId: <facts.id> }
+```
+
+This handles the common top-level `{ fact }` case; for `path` / nested references,
+extend the resolver accordingly.
 
 ## Behavioral edge cases
 

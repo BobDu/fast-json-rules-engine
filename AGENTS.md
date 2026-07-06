@@ -59,9 +59,10 @@ two files:
   a falsy rule `name` is dropped. `event.params` aliases the source rule (read-only).
 - `hasOwn` (never `in`) throughout, matching upstream's `hasOwnProperty` checks.
 - **Deliberate fail-loud divergences** (rejected at compile, not silently
-  mishandled): sub-condition `priority`, `replaceFactsInEventParams`, unparseable
-  rule priority, uninjected `path`, non-string value-fact reference. Each is
-  commented at its throw site — preserve the reasoning.
+  mishandled): sub-condition `priority`, unparseable rule priority, uninjected
+  `path`, non-string value-fact reference. Each is commented at its throw site —
+  preserve the reasoning. (`replaceFactsInEventParams` is *not* one of these — it's
+  ignored, documented in MIGRATING, since there's nothing to fail on.)
 
 ## Testing model
 

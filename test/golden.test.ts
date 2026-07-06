@@ -275,10 +275,6 @@ test('results/failureResults carry the same normalized event object as events', 
   expect(out.results[0].event).toBe(out.events[0]) // one normalized object shared across the events/results surfaces
   expect(out.failureResults[0].event).toBe(out.failureEvents[0])
 })
-test('replaceFactsInEventParams is rejected (unsupported — no runtime almanac)', () =>
-  expect(() =>
-    compile([{ conditions: { all: [] }, event: ev('a') }], { replaceFactsInEventParams: true } as never),
-  ).toThrow(CompileError))
 
 // --- a falsy path ('' / null) is ignored, matching json-rules-engine (if(path))
 test('falsy path is ignored like json-rules-engine (uses the raw fact value)', async () => {

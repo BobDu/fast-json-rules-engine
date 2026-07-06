@@ -18,8 +18,6 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (falsy `params` and non-`type`/`params` keys dropped) as fresh engine-owned
   objects reused across evaluations; `params` aliases the source rule, so treat
   returned events as read-only.
-- `replaceFactsInEventParams` is rejected at compile time (no runtime almanac to
-  resolve `{ fact }` references inside event params).
 - `stopOnFirstEvent` option for first-match evaluation.
 - `allowUndefinedConditions` option: an unknown named condition compiles to `false`
   instead of throwing (matches json-rules-engine).
