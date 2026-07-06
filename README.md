@@ -275,15 +275,14 @@ All exports from `fast-json-rules-engine`:
 - **`KNOWN_OPERATORS`, `KNOWN_DECORATORS`** — frozen `readonly string[]` of the
   built-in operator / decorator names, handy for validating rule documents before
   compiling.
-- **Types:** `Rule` (also exported as `RuleProperties`), `CompileOptions`,
+- **Types:** `Rule`, `CompileOptions`,
   `RunOptions`, `CompiledRules`, `Event<Params>`, `EngineResult`, `Facts`,
   `Condition` / `TopLevelCondition` / `LeafCondition` / `AllCondition` /
   `AnyCondition` / `NotCondition` / `ConditionReference` / `ValueReference`,
   `OperatorFn`, `PathResolver`.
 
-Type your rule documents with `Rule` — also exported as `RuleProperties`
-(json-rules-engine's name for the same shape), so rules typed against upstream
-drop in unchanged:
+Type your rule documents with `Rule` (the same shape as json-rules-engine's
+`RuleProperties`, so upstream rule documents drop in unchanged):
 
 ```ts
 import { compile } from 'fast-json-rules-engine'

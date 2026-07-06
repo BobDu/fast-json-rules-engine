@@ -79,12 +79,6 @@ export interface Rule {
 }
 
 /**
- * Alias for {@link Rule} under json-rules-engine's data-shape name, so a rule set
- * typed against upstream (`RuleProperties[]`) drops in unchanged.
- */
-export type RuleProperties = Rule
-
-/**
  * The outcome of evaluating a compiled rule set against one facts object.
  *
  * Only `events` is returned. json-rules-engine additionally exposes

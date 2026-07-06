@@ -30,7 +30,6 @@ export type {
   OperatorFn,
   PathResolver,
   Rule,
-  RuleProperties,
   RunOptions,
   TopLevelCondition,
   ValueReference,
