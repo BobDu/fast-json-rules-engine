@@ -5,3 +5,6 @@ coverage/
 *.tgz
 .DS_Store
 npm-debug.log*
+
+# Claude Code local tooling (worktrees, local settings)
+.claude/
