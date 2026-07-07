@@ -28,7 +28,8 @@ PRs are welcome.
   json-rules-engine 6.6.0. If you change semantics, the fuzzer must still agree.
 - Coverage is gated at 100%. Genuinely unreachable code is marked
   `/* v8 ignore */` with a comment explaining why.
-- Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
+- Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
+  and are signed off (`git commit -s`, [DCO](https://developercertificate.org/)).
 - Some facts live in more than one doc by design (the README is the npm landing
   page and stays self-contained). If you change `path` / jsonpath-plus guidance,
   the supported / not-supported matrix, or edge-case semantics, update README,

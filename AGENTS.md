@@ -87,5 +87,5 @@ APIs* (`structuredClone`, `Object.hasOwn`, …) are not (`eslint-plugin-n` + the
 dist smoke fail on them). Test code runs on modern Node and uses them freely.
 
 Everything else — full dev loop, the 100% coverage gate, doc-sync, Conventional
-Commits (`-s -S`) — is in **`CONTRIBUTING.md`**; the "keep the fuzzer agreeing"
-rule is under Parity above.
+Commits + DCO sign-off (`-s`; maintainer commits are also GPG-signed, `-S`) — is
+in **`CONTRIBUTING.md`**; the "keep the fuzzer agreeing" rule is under Parity above.

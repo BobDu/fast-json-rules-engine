@@ -141,7 +141,8 @@ scope. Most have a simple workaround given static facts.
 | **Rule chaining via events/almanac** | Read the returned `events`, build the next `facts`, and call `run` again — you orchestrate the chain explicitly. |
 | **Facts in event params** (`replaceFactsInEventParams`) | Ignored — `event.params` is returned as authored. Resolve `{ fact }` references yourself after `run()` ([example below](#resolving-fact-references-in-event-params)). |
 | **Fact params on a condition** (`{ fact, params }`) | Only parameterize dynamic fact functions (unsupported); ignored for static facts, exactly as json-rules-engine does. |
-| **Event handlers** (`engine.on(...)`) | Read the returned `events`. |
+| **Custom operator decorators** (`engine.addOperatorDecorator(name, fn)`) | No counterpart — only the 6 built-in decorators resolve. Express the logic as a plain custom operator via `options.operators` instead (e.g. `allOver: (arr, v) => Array.isArray(arr) && arr.every((x) => x > v)`). |
+| **Event handlers** (`engine.on(...)`, and the rule-level `onSuccess` / `onFailure` callbacks) | Read the returned `events`. |
 | **Custom almanac** | No almanac concept; there's nothing to customize. |
 | **Runtime rule mutation** (`addRule` after a run) | Rules are compiled up front; recompile to change them. |
 | **`failureEvents` / `results` / `failureResults` / `almanac`** | Not returned — `run()` yields only `events`. json-rules-engine's failure surfaces, per-rule result objects, the evaluated-conditions tree, and the almanac have no counterpart here. Determine failures from your own logic; the condition-tree clone is json-rules-engine's main per-run cost. |
@@ -197,7 +198,7 @@ purpose (fail loud rather than guess):
 - **An unknown named condition** (`{ condition: 'name' }` with no matching entry in
   `options.conditions`) throws `CompileError` **eagerly at compile** here — before
   any run, regardless of short-circuit — whereas json-rules-engine throws a plain
-  `Error('No condition "name" exists')` **lazily at run**, and only if that branch is
+  ``Error(`No condition ${name} exists`)`` **lazily at run**, and only if that branch is
   actually evaluated. Set `allowUndefinedConditions: true` to compile it to `false`
   instead (matches json-rules-engine).
 - **Undefined facts fail loud *eagerly and globally*.** With the default

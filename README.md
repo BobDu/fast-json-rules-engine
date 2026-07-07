@@ -302,6 +302,11 @@ compile time (nesting depth is capped; named-condition fan-out is memoized), but
 treat rule documents as code. Facts are data, never evaluated. See
 [SECURITY.md](./SECURITY.md).
 
+## Contributing
+
+Issues and PRs are welcome. Dev setup, the test layers (including the
+differential fuzzer), and ground rules: [CONTRIBUTING.md](./CONTRIBUTING.md).
+
 ## Credits
 
 The rule format, operator/decorator semantics, and error messages are

@@ -70,6 +70,10 @@ a scalar; for `contains`/`doesNotContain` the **fact** is the array and the valu
 is a scalar. Numeric operators reject non-numeric facts (so `null >= 0` is
 `false`, not JavaScript's `true`), matching json-rules-engine's `numberValidator`.
 
+The built-in operator and decorator names are exported as `KNOWN_OPERATORS` and
+`KNOWN_DECORATORS` (frozen `readonly string[]`) — handy for validating rule
+documents before compiling, e.g. in a rule-authoring UI.
+
 ## Boolean composition: `all` / `any` / `not`
 
 A rule's `conditions` root must be `all`, `any`, `not`, or a condition reference
@@ -206,11 +210,29 @@ Controls what happens when a rule references a fact absent from `facts`:
 const rules = [{ conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] }, event: { type: 'm' } }]
 
 compile(rules).run({})                               // → throws UndefinedFactError: "Undefined fact: missing"
-compile(rules, { allowUndefinedFacts: true }).run({}) // → { events: [], ... }  (absent treated as undefined)
+compile(rules, { allowUndefinedFacts: true }).run({}) // → { events: [] }  (absent treated as undefined)
 ```
 
 The default (`false`) fails loud so a typo or missing fact never silently
 produces a wrong answer.
+
+## `allowUndefinedConditions`
+
+Controls what happens when `{ condition: 'name' }` references a name missing
+from `options.conditions`:
+
+```js
+const rules = [{ conditions: { all: [{ condition: 'isVip' }] }, event: { type: 'v' } }]
+
+compile(rules)                                      // → throws CompileError: Unknown named condition: "isVip"
+compile(rules, { allowUndefinedConditions: true })  // compiles — the unknown reference evaluates to false
+  .run({}).events                                   // → []
+```
+
+The default (`false`) fails loud, eagerly at compile time (json-rules-engine
+throws at run time instead, and only if the branch is actually evaluated — see
+[MIGRATING](./MIGRATING.md#behavioral-edge-cases)). With `true`, the unknown
+reference compiles to `false`, matching json-rules-engine.
 
 ## `path` (requires an injected resolver)
 
