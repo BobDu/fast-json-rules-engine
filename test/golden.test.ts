@@ -168,10 +168,26 @@ test('custom operator whose name contains ":" is matched whole', () =>
 // --- compile-time guards (fail-loud surface, asserted directly)
 test('path without a pathResolver throws CompileError', () =>
   expect(() => compile([{ conditions: { all: [{ fact: 'u', path: '$.x', operator: 'equal', value: 1 }] }, event: ev('a') }])).toThrow(CompileError))
-test('sub-condition priority is rejected', () =>
-  expect(() =>
-    compile([{ conditions: { all: [{ fact: 'a', operator: 'equal', value: 1, priority: 10 } as never] }, event: ev('a') }]),
-  ).toThrow(CompileError))
+test('sub-condition priority is ignored (compiles; events match json-rules-engine)', async () => {
+  // A nested `priority` is upstream's short-circuit ordering hint; we ignore it
+  // (the boolean result is order-independent). It must still compile and agree
+  // with json-rules-engine, which honors the hint for ordering but yields the
+  // same events. All facts present so neither engine hits the undefined-fact path.
+  const rule = [
+    {
+      conditions: {
+        all: [
+          { fact: 'a', operator: 'equal', value: 1, priority: 10 },
+          { fact: 'b', operator: 'equal', value: 2, priority: 1 },
+        ],
+      },
+      event: ev('a'),
+    },
+  ]
+  await expectMatch(rule as never, { a: 1, b: 2 })
+  await expectMatch(rule as never, { a: 1, b: 999 })
+  await expectMatch(rule as never, { a: 999, b: 2 })
+})
 test('unknown operator throws CompileError', () =>
   expect(() => compile([{ conditions: { all: [{ fact: 'x', operator: 'bogus', value: 1 }] }, event: ev('a') }])).toThrow(CompileError))
 test('bare-leaf root throws CompileError', () =>

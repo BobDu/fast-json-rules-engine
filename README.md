@@ -188,7 +188,7 @@ What it deliberately does **not** do (the runtime dynamism it trades for speed):
 | `failureEvents` / `results` / `failureResults` / `almanac` in the result | Not returned — `run()` yields only `events`. json-rules-engine's per-rule result objects, failure surfaces, evaluated-conditions tree, and almanac have no counterpart here (the condition-tree clone is its main per-run cost). |
 | Runtime rule mutation (`addRule` after run) | Rules are compiled up front; recompile to change them. |
 | Bundled JSONPath | No path engine is shipped; `path` requires an injected `pathResolver` (see [Paths](#paths)). |
-| Sub-condition priorities | A `priority` on a nested condition (json-rules-engine's within-rule evaluation ordering) is rejected at compile time — meaningless once compiled over static facts. |
+| Sub-condition priorities | A `priority` on a nested condition (json-rules-engine's within-rule evaluation ordering) is **ignored** — meaningless once compiled over static facts (the boolean result is order-independent). |
 | `replaceFactsInEventParams` | Ignored — no runtime almanac; `event.params` is returned as authored. Resolve `{ fact }` references yourself after `run()` (see [docs/MIGRATING.md](./docs/MIGRATING.md)). |
 
 Unknown operators, unsupported paths, malformed conditions, and circular named

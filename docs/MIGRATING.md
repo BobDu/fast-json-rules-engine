@@ -103,7 +103,7 @@ scope. Most have a simple workaround given static facts.
 | --- | --- |
 | **Async / computed facts** (`engine.addFact(id, async fn)`) | Compute the value before evaluating and put it on the `facts` object. Facts are plain static values. |
 | **Fact dependency** (a fact derived from other facts) | Same — derive it up front and pass it in. |
-| **Sub-condition / fact priorities** (a `priority` on a nested condition) | Not supported; rejected at compile time. Rule-level `priority` is supported. |
+| **Sub-condition / fact priorities** (a `priority` on a nested condition) | Accepted but **ignored** — it only reorders json-rules-engine's short-circuit, which is meaningless over static facts (the boolean result is order-independent, and reads are free). Rule-level `priority` is honored. |
 | **Rule chaining via events/almanac** | Read the returned `events`, build the next `facts`, and call `run` again — you orchestrate the chain explicitly. |
 | **Facts in event params** (`replaceFactsInEventParams`) | Ignored — `event.params` is returned as authored. Resolve `{ fact }` references yourself after `run()` ([example below](#resolving-fact-references-in-event-params)). |
 | **Fact params on a condition** (`{ fact, params }`) | Only parameterize dynamic fact functions (unsupported); ignored for static facts, exactly as json-rules-engine does. |
@@ -151,6 +151,39 @@ purpose (fail loud rather than guess):
   (`parseInt` → `NaN`) throws here while json-rules-engine stores `NaN` and runs.
 - **Missing `value` on a leaf, or missing `event.type`** throws `CompileError`
   (json-rules-engine also rejects these).
+- **Undefined facts fail loud *eagerly and globally*.** With the default
+  `allowUndefinedFacts: false`, `run()` checks every fact referenced by *any* rule
+  up front and throws `UndefinedFactError` before evaluating a single rule — so a
+  missing fact throws even when short-circuit or `stopOnFirstEvent` would have
+  skipped the rule that references it. json-rules-engine checks lazily (only as each
+  evaluated rule reads a fact), so it can **return normally** where this engine
+  **throws**:
+
+  ```js
+  const rules = [
+    { conditions: { all: [{ fact: 'tier', operator: 'equal', value: 'gold' }] },
+      event: { type: 'vip' }, priority: 10 },
+    { conditions: { all: [{ fact: 'missing', operator: 'equal', value: 1 }] },
+      event: { type: 'other' }, priority: 1 },
+  ]
+  const facts = { tier: 'gold' } // `missing` is absent
+
+  // json-rules-engine — stop after the first match:
+  const engine = new Engine(rules)
+  engine.on('success', () => engine.stop())
+  const { events } = await engine.run(facts)
+  // → events = [{ type: 'vip' }], NO throw: the priority-10 rule matches and stops
+  //   the engine, so the priority-1 rule (referencing the absent `missing`) never runs.
+
+  // fast-json-rules-engine — the global pre-check runs before any rule:
+  compile(rules).run(facts, { stopOnFirstEvent: true })
+  // → throws UndefinedFactError ("missing"), even though the matching rule doesn't
+  //   reference it and stopOnFirstEvent would have stopped before the other rule.
+  ```
+
+  This is intentional: a missing fact is almost always a config bug, so failing
+  loud regardless of evaluation order catches it early. Set
+  `allowUndefinedFacts: true` to treat an absent fact as `undefined` (no throw).
 - **Returned events are normalized** to `{ type, params? }` (falsy `params` and
   any non-`type`/`params` keys dropped) exactly like json-rules-engine's
   `setEvent`. The returned event is a fresh engine-owned object reused across
@@ -177,7 +210,7 @@ json-rules-engine's `examples/` mapped to this library:
 | `13-using-operator-decorators` | [`examples/05-decorators.mjs`](../examples/05-decorators.mjs) |
 | `03-dynamic-facts` | ❌ not supported (compute facts up front) |
 | `04-fact-dependency` | ❌ not supported (compute facts up front) |
-| `05-optimizing-runtime-with-fact-priorities` | ❌ sub-condition priorities not supported |
+| `05-optimizing-runtime-with-fact-priorities` | ⚠️ sub-condition priorities compile but are ignored (no async/expensive facts to reorder around) |
 | `07-rule-chaining` | ❌ orchestrate via returned `events` |
 | `11-using-facts-in-events` | ❌ fill event params after reading `events` |
 | `12-using-custom-almanac` | ❌ no almanac concept |

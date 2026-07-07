@@ -59,10 +59,11 @@ two files:
   `event.params` aliases the source rule (read-only).
 - `hasOwn` (never `in`) throughout, matching upstream's `hasOwnProperty` checks.
 - **Deliberate fail-loud divergences** (rejected at compile, not silently
-  mishandled): sub-condition `priority`, unparseable rule priority, uninjected
-  `path`, non-string value-fact reference. Each is commented at its throw site —
-  preserve the reasoning. (`replaceFactsInEventParams` is *not* one of these — it's
-  ignored, documented in MIGRATING, since there's nothing to fail on.)
+  mishandled): unparseable rule priority, uninjected `path`, non-string
+  value-fact reference. Each is commented at its throw site — preserve the reasoning.
+  Two things are instead *silently ignored* (documented in MIGRATING, nothing to fail
+  on over static facts): `replaceFactsInEventParams`, and a nested-condition `priority`
+  (an upstream short-circuit-ordering hint; the boolean result is order-independent).
 
 ## Testing model
 

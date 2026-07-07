@@ -254,16 +254,12 @@ function compileCondition(cond: Condition, ctx: Ctx, stack: Set<string>): Predic
   if (cond === null || typeof cond !== 'object') {
     throw new CompileError(`Invalid condition: ${JSON.stringify(cond)}`)
   }
-  // Sub-condition priorities drive json-rules-engine's between-priority-set
-  // short-circuit — a runtime-ordering feature that has no meaning once rules
-  // are compiled over static facts. Rather than silently ignore it (which would
-  // mis-handle undefined-fact throwing), reject it loudly.
-  if (hasOwn(cond, 'priority')) {
-    throw new CompileError(
-      `Sub-condition priorities are not supported (found "priority" on a nested condition); ` +
-        `remove it or restructure the rule.`,
-    )
-  }
+  // A `priority` on a nested condition is json-rules-engine's between-priority-set
+  // short-circuit ORDERING hint — meaningless once rules are compiled over static
+  // facts (no expensive async facts to reorder around; the boolean result is
+  // order-independent). We silently IGNORE it: the rule still compiles and its
+  // events match json-rules-engine. (The global undefined-fact pre-check asserts
+  // presence regardless of order, so ignoring the hint cannot mask a missing fact.)
 
   // Key precedence matches json-rules-engine's Condition.booleanOperator:
   // any > all > not (> condition reference). hasOwn (not `in`) matches upstream's
