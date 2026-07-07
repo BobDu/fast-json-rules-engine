@@ -48,6 +48,20 @@ test('not:in and swap:contains decorators', async () => {
   await expectMatch([{ conditions: { all: [{ fact: 'c', operator: 'not:in', value: ['US'] }] }, event: ev('a') }], { c: 'BR' })
   await expectMatch([{ conditions: { all: [{ fact: 'c', operator: 'swap:contains', value: ['US', 'GB'] }] }, event: ev('a') }], { c: 'US' })
 })
+test('composed decorators: an array-validated decorator over an already-decorated inner', async () => {
+  // everyFact's Array.isArray validator wraps a DECORATED evaluate (someValue:greaterThan),
+  // not a plain cb — pins decorate()'s layering/apply order for composed chains.
+  const rule = [{ conditions: { all: [{ fact: 'scores', operator: 'everyFact:someValue:greaterThan', value: [2, 4] }] }, event: ev('a') }]
+  await expectMatch(rule, { scores: [5, 6] }) // every score > some of [2, 4] → match
+  await expectMatch(rule, { scores: [1, 6] }) // 1 exceeds neither → no match
+  await expectMatch(rule, { scores: 'notarray' }) // outer Array.isArray validator gates
+})
+test('every/some decorators over EMPTY arrays (vacuous truth)', async () => {
+  await expectMatch([{ conditions: { all: [{ fact: 'scores', operator: 'everyFact:greaterThan', value: 3 }] }, event: ev('a') }], { scores: [] })
+  await expectMatch([{ conditions: { all: [{ fact: 'scores', operator: 'someFact:greaterThan', value: 3 }] }, event: ev('a') }], { scores: [] })
+  await expectMatch([{ conditions: { all: [{ fact: 'x', operator: 'everyValue:greaterThan', value: [] }] }, event: ev('a') }], { x: 5 })
+  await expectMatch([{ conditions: { all: [{ fact: 'x', operator: 'someValue:greaterThan', value: [] }] }, event: ev('a') }], { x: 5 })
+})
 
 // --- nested boolean trees + empty
 test('nested any-within-all-within-not', async () => {
@@ -138,6 +152,31 @@ test('both all and any present -> any wins', () =>
     [{ conditions: { all: [{ fact: 'x', operator: 'equal', value: 1 }], any: [{ fact: 'x', operator: 'equal', value: 2 }] }, event: ev('a') }],
     { x: 2 },
   ))
+// The any > all precedence must hold identically across compileCondition,
+// collectFacts, and assertDepth (the AGENTS.md parity constraint). Distinct
+// facts per branch make the collected set observable: only the evaluated (any)
+// branch's fact may be required by the global pre-check.
+test('both all and any present: collectFacts follows the evaluated (any) branch', () => {
+  const engine = compile([
+    {
+      conditions: {
+        all: [{ fact: 'onlyAll', operator: 'equal', value: 1 }],
+        any: [{ fact: 'onlyAny', operator: 'equal', value: 2 }],
+      },
+      event: ev('a'),
+    },
+  ])
+  expect(engine.run({ onlyAny: 2 }).events.map((e) => e.type)).toEqual(['a']) // onlyAll never required
+  expect(() => engine.run({ onlyAll: 1 })).toThrow(UndefinedFactError) // onlyAny is required
+})
+test('both all and any present: assertDepth also follows the any branch (deep all branch ignored)', () => {
+  let deep: unknown = { fact: 'x', operator: 'equal', value: 1 }
+  for (let i = 0; i < 600; i++) deep = { all: [deep] } // over MAX_DEPTH if it were measured
+  const engine = compile([
+    { conditions: { all: [deep], any: [{ fact: 'x', operator: 'equal', value: 1 }] } as never, event: ev('a') },
+  ])
+  expect(engine.run({ x: 1 }).events.map((e) => e.type)).toEqual(['a'])
+})
 test('prototype-member fact name is not a fact', async () => {
   await expectMatch([{ conditions: { all: [{ fact: 'toString', operator: 'equal', value: { fact: 'missing' } }] }, event: ev('a') }], {}, { allowUndefinedFacts: true })
   await expectMatch([{ conditions: { all: [{ fact: 'hasOwnProperty', operator: 'equal', value: 1 }] }, event: ev('a') }], {})
@@ -149,6 +188,16 @@ test('event without type throws (both engines)', () =>
 test('negative and fractional priorities throw (both engines)', async () => {
   await expectMatch([{ conditions: { all: [] }, event: ev('a'), priority: -3 }], { x: 1 })
   await expectMatch([{ conditions: { all: [] }, event: ev('a'), priority: 0.5 }], { x: 1 })
+})
+test('unparseable priority throws CompileError (deliberate divergence: upstream stores NaN and runs)', () => {
+  // NOT routed through expectMatch: json-rules-engine's setPriority keeps the
+  // parseInt NaN and runs the rule anyway, so throw-parity would fail — this is
+  // one of the documented fail-loud divergences and needs a direct guard.
+  for (const priority of ['abc', {}, []]) {
+    const rules = [{ conditions: { all: [] }, event: ev('a'), priority }] as never
+    expect(() => compile(rules)).toThrow(CompileError)
+    expect(() => compile(rules)).toThrow(/priority must parse to a positive integer/)
+  }
 })
 test('numeric-string priority is parsed (both engines)', () =>
   expectMatch(
@@ -164,6 +213,14 @@ test('custom operator whose name contains ":" is matched whole', () =>
     { f: 5 },
     { operators: { 'not:equal': () => true } },
   ))
+test('a custom operator shadowing a built-in name takes precedence (matches upstream addOperator)', async () => {
+  // Upstream's addOperator overwrites the same-named default in its operator map;
+  // resolveOperator checks custom before BASE_OPERATORS for the same reason.
+  const rule = [{ conditions: { all: [{ fact: 'f', operator: 'equal', value: 5 }] }, event: ev('a') }]
+  const operators = { equal: (a: unknown, b: unknown) => a !== b } // deliberately inverted
+  await expectMatch(rule, { f: 5 }, { operators }) // overridden: 5 !== 5 → no match
+  await expectMatch(rule, { f: 6 }, { operators }) // 6 !== 5 → match
+})
 
 // --- compile-time guards (fail-loud surface, asserted directly)
 test('path without a pathResolver throws CompileError', () =>
@@ -203,6 +260,31 @@ test('deeply nested conditions throw CompileError (not RangeError)', () => {
   for (let i = 0; i < 20000; i++) d = { all: [d] }
   expect(() => compile([{ conditions: d as never, event: ev('a') }])).toThrow(CompileError)
 })
+test('MAX_DEPTH boundary: exactly 512 deep compiles and evaluates, 513 throws', () => {
+  const nest = (n: number): unknown => {
+    let d: unknown = { fact: 'x', operator: 'equal', value: 1 }
+    for (let i = 0; i < n; i++) d = { all: [d] }
+    return d
+  }
+  const engine = compile([{ conditions: nest(512) as never, event: ev('a') }])
+  expect(engine.run({ x: 1 }).events.map((e) => e.type)).toEqual(['a']) // eval stack survives the cap
+  expect(() => compile([{ conditions: nest(513) as never, event: ev('a') }])).toThrow(CompileError)
+})
+test('MAX_DEPTH boundary via a memoized named-condition reference (memo arithmetic)', () => {
+  // nA's memoized relative depth is 200; a reference wrapped in M alls expands to
+  // M + 1 + 200 total. M=311 lands exactly on 512 (compiles); M=312 is 513 (throws).
+  let body: unknown = { fact: 'x', operator: 'equal', value: 1 }
+  for (let i = 0; i < 200; i++) body = { all: [body] }
+  const wrap = (n: number): unknown => {
+    let d: unknown = { condition: 'nA' }
+    for (let i = 0; i < n; i++) d = { all: [d] }
+    return d
+  }
+  const seed = { conditions: { condition: 'nA' }, event: ev('seed') } // seeds nA's memo shallow
+  const opts = { conditions: { nA: body } }
+  expect(() => compile([seed, { conditions: wrap(311), event: ev('deep') }] as never, opts as never)).not.toThrow()
+  expect(() => compile([seed, { conditions: wrap(312), event: ev('deep') }] as never, opts as never)).toThrow(CompileError)
+})
 test('fan-out named conditions compile without exponential blow-up', () => {
   const conditions: Record<string, unknown> = { c0: { all: [{ fact: 'x', operator: 'equal', value: 1 }] } }
   for (let i = 1; i < 40; i++) conditions['c' + i] = { all: [{ condition: 'c' + (i - 1) }, { condition: 'c' + (i - 1) }] }
@@ -228,6 +310,12 @@ test('named condition with a non-boolean root throws', () =>
   badCond({ condition: 'leaf' }, { conditions: { leaf: { fact: 'x', operator: 'equal', value: 1 } as never } }))
 test('rule missing "conditions" throws', () => cErr([{ event: ev('a') }]))
 test('rule missing "event" throws', () => cErr([{ conditions: { all: [] } }]))
+// These three also have throw-PARITY tests above (expectMatch: both engines throw);
+// the typed assertions here additionally pin that OUR throw is a clean CompileError,
+// not a raw TypeError/RangeError.
+test('leaf missing "value" throws CompileError', () => badCond({ all: [{ fact: 'x', operator: 'equal' }] }))
+test('event missing "type" throws CompileError', () => cErr([{ conditions: { all: [] }, event: { params: { a: 1 } } }]))
+test('non-positive priority throws CompileError', () => cErr([{ conditions: { all: [] }, event: ev('a'), priority: -3 }]))
 test('rule "event" as an array throws', () => cErr([{ conditions: { all: [] }, event: [] }]))
 test('rule "event" as null throws', () => cErr([{ conditions: { all: [] }, event: null }]))
 test('deep nesting also fails loud in compileCondition (allowUndefinedFacts skips the collectFacts guard)', () => {

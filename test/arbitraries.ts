@@ -43,6 +43,8 @@ const CMP = fc.constantFrom(
 const dec1 = (d: string, op: fc.Arbitrary<string>) => fc.tuple(fc.constant(d), op).map(([a, o]) => `${a}:${o}`)
 const dec2 = (a: string, b: string, op: fc.Arbitrary<string>) =>
   fc.tuple(fc.constant(a), fc.constant(b), op).map(([x, y, o]) => `${x}:${y}:${o}`)
+const dec3 = (a: string, b: string, c: string, op: fc.Arbitrary<string>) =>
+  fc.tuple(fc.constant(a), fc.constant(b), fc.constant(c), op).map(([x, y, z, o]) => `${x}:${y}:${z}:${o}`)
 
 const leafBody = fc.oneof(
   fc.record({ fact: factName, operator: CMP, value: scalar }),
@@ -63,6 +65,13 @@ const leafBody = fc.oneof(
   fc.record({ fact: factName, operator: fc.constant('not:in'), value: arrayVal }),
   // a 2-deep chain that stays well-formed
   fc.record({ fact: factName, operator: dec2('not', 'everyFact', CMP), value: scalar }),
+  // array-validated decorator OVER an already-decorated inner evaluate (the
+  // Array.isArray validator wraps a decorated fn, not a plain cb): fact is an
+  // array of scalars, the inner someValue/everyValue consumes the array value
+  fc.record({ fact: factName, operator: dec2('everyFact', 'someValue', CMP), value: arrayVal }),
+  fc.record({ fact: factName, operator: dec2('someFact', 'everyValue', CMP), value: arrayVal }),
+  // a 3-deep chain that stays well-formed
+  fc.record({ fact: factName, operator: dec3('not', 'everyFact', 'someValue', CMP), value: arrayVal }),
   // value as a fact reference
   fc.record({ fact: factName, operator: CMP, value: fc.record({ fact: factName }) }),
   // value as a fact reference WITH a path (reads a nested sub-value of the ref)
