@@ -4,6 +4,7 @@ on:
   push:
     tags: ['v*']
 
+# Least privilege by default; each job widens only what it needs.
 permissions:
   contents: read
 
@@ -13,23 +14,43 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write # required for npm provenance / trusted publishing
+      id-token: write # OIDC token for npm Trusted Publishing + provenance
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Single source of truth (.nvmrc). The CI Node version does not affect the
+          # published artifact's runtime floor (>=14 via tsdown --target node14 + engines).
+          node-version-file: .nvmrc
+          # Pins .npmrc to the public registry (OIDC + provenance only work there).
+          # No NODE_AUTH_TOKEN: the empty auth placeholder is harmless because npm's
+          # OIDC detection takes precedence over it.
           registry-url: https://registry.npmjs.org
           cache: npm
-      - run: npm install -g npm@latest # trusted publishing / provenance needs npm >= 11.5
+      - run: npm install -g npm@latest # Trusted Publishing / provenance needs npm >= 11.5
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:coverage
       - run: npm run test:dist
-      # Publishes with provenance (publishConfig.provenance). Auth is via npm
-      # Trusted Publishing (OIDC, tokenless) when configured for this repo on
-      # npmjs; falls back to NPM_TOKEN if the secret is set.
+      # The version is not committed (package.json stays at 0.0.0-development). Derive
+      # it from the pushed tag (v1.2.3 -> 1.2.3) into the tarball only; the tag is the
+      # single source of truth. --no-git-tag-version = edit package.json, no commit/tag.
+      - run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+      # Tokenless publish via npm Trusted Publishing (OIDC). npm >= 11.5 detects the CI
+      # OIDC environment and authenticates itself; provenance (publishConfig.provenance)
+      # is generated automatically. No NPM_TOKEN / NODE_AUTH_TOKEN.
       - run: npm publish
+
+  github-release:
+    needs: publish # only cut a GitHub Release once the package is actually on npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # create the GitHub Release for the pushed tag
+    steps:
+      # gh is preinstalled on the runner; no checkout needed. --verify-tag refuses to
+      # create a Release without the underlying tag; --generate-notes builds the notes.
+      - run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ github.token }}

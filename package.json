@@ -1,6 +1,6 @@
 {
   "name": "fast-json-rules-engine",
-  "version": "0.1.0",
+  "version": "0.0.0-development",
   "description": "Fast, compiled, zero-dependency rules engine compatible with the json-rules-engine JSON rule format",
   "keywords": [
     "rules",
@@ -55,7 +55,7 @@
   "scripts": {
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean --platform node --target node14",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run test:dist && git diff --quiet",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run test:dist",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint src",
     "test": "vitest run",
