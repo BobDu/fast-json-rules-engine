@@ -22,9 +22,12 @@ interface OperatorSpec {
 /* v8 ignore next */
 const alwaysValid = (): boolean => true
 
-// json-rules-engine numberValidator: Number.parseFloat(x).toString() !== 'NaN'
+// json-rules-engine's numberValidator is `Number.parseFloat(x).toString() !== 'NaN'`.
+// This is the allocation-free equivalent: both are true iff parseFloat(x) is not NaN,
+// but this drops the per-check result `.toString()` + string compare. Verified
+// identical by the differential fuzzer (incl. NaN / Infinity / null / strings / arrays).
 const numberValidator = (factValue: any): boolean =>
-  Number.parseFloat(factValue).toString() !== 'NaN'
+  !Number.isNaN(Number.parseFloat(factValue))
 
 const BASE_OPERATORS: Record<string, OperatorSpec> = {
   equal: { cb: (a, b) => a === b, validator: alwaysValid },
