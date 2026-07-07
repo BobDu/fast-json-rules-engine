@@ -115,7 +115,8 @@ const tier = engine.run(facts, { stopOnFirstEvent: true }).events[0]?.params?.ti
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `allowUndefinedFacts` | `false` | When `false`, evaluating a rule that references an absent fact throws `UndefinedFactError` (matches json-rules-engine). When `true`, an absent fact is treated as `undefined`. |
+| `allowUndefinedFacts` | `false` | When `false`, a missing fact throws `UndefinedFactError` — checked eagerly across all rules before evaluation (stricter than json-rules-engine's lazy per-read check; see [MIGRATING](./docs/MIGRATING.md#behavioral-edge-cases)). When `true`, an absent fact is treated as `undefined`. |
+| `allowUndefinedConditions` | `false` | When `false`, an unknown `{ condition: 'name' }` throws `CompileError`. When `true`, it compiles to `false` (matches json-rules-engine). |
 | `operators` | – | Custom operators: `{ name: (factValue, value) => boolean }`. |
 | `conditions` | – | Named conditions referenced via `{ condition: 'name' }`. |
 | `pathResolver` | – | `(value, path) => resolved`. Required to use `path` — see [Paths](#paths). |
@@ -171,7 +172,7 @@ documents compile unchanged:
 | --- | --- |
 | All 10 operators | `equal`, `notEqual`, `in`, `notIn`, `contains`, `doesNotContain`, `lessThan(Inclusive)`, `greaterThan(Inclusive)` |
 | All 6 operator decorators | `someFact`, `someValue`, `everyFact`, `everyValue`, `swap`, `not` (e.g. `everyFact:greaterThan`) |
-| Nested `all` / `any` / `not` | Any depth |
+| Nested `all` / `any` / `not` | Any depth, up to a compile-time cap of 512 (deeper throws `CompileError`) |
 | `priority` | Rule priority; events returned highest-first |
 | Value as fact reference | `value: { fact: 'other' }` |
 | Named conditions | via `options.conditions` and `{ condition: 'name' }` |

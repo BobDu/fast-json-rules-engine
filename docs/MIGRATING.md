@@ -43,7 +43,10 @@ first, normalized to `{ type, params? }`. json-rules-engine additionally returns
 `failureEvents`, `results`, `failureResults`, and an `almanac`, which are **not
 supported** here (see the table below). So most call sites only change from
 `await engine.run(facts)` to `engine.run(facts)` (still `engine.run`, just no `await`)
-and read `.events`.
+and read `.events`. Reading a dropped surface (`result.failureEvents`, `.results`, …)
+returns `undefined` — it does **not** throw — so ported code that iterated one turns
+into a silent no-op (or a `TypeError` only when you loop over the `undefined`); audit
+those call sites.
 
 **`run()` is synchronous — mind `.then()`.** It returns the result object
 directly, not a Promise. `await engine.run(facts)` keeps working (awaiting a
@@ -54,19 +57,29 @@ no `.then`. Drop the chain and use the returned value directly.
 
 ## ✅ Works unchanged
 
-Existing rule documents compile as-is. All of these behave identically:
+Existing rule documents compile as-is. These are supported and behave the same,
+except where a caveat is noted inline:
 
 - All 10 operators (`equal`, `notEqual`, `in`, `notIn`, `contains`,
   `doesNotContain`, `lessThan(Inclusive)`, `greaterThan(Inclusive)`).
 - All 6 operator decorators (`someFact`, `someValue`, `everyFact`, `everyValue`,
   `swap`, `not`), including chains like `not:everyFact:greaterThan`.
-- Nested `all` / `any` / `not` (any depth); empty `all`/`any` both evaluate to
-  `true`, as in json-rules-engine.
-- Rule `priority` (events come back highest-priority first).
+- Nested `all` / `any` / `not` (up to a compile-time depth cap of **512** — see
+  [edge cases](#behavioral-edge-cases)); empty `all`/`any` both evaluate to `true`,
+  as in json-rules-engine.
+- Rule `priority` (events come back highest-priority first). Within a **tied**
+  priority, order is deterministic here (rule-definition order), whereas
+  json-rules-engine's tied order follows promise resolution — don't rely on tie
+  order matching upstream.
 - `value` as a fact reference: `value: { fact: 'other' }`.
 - Named conditions via `{ condition: 'name' }` (pass them in `options.conditions`).
 - Custom operators (pass them in `options.operators`).
-- `allowUndefinedFacts` (both modes).
+- `allowUndefinedConditions: true` (an unknown `{ condition: 'name' }` compiles to
+  `false`) — matches json-rules-engine. The default `false` rejects an unknown
+  condition, but *eagerly at compile time* (see [edge cases](#behavioral-edge-cases)).
+- `allowUndefinedFacts: true` (an absent fact reads as `undefined`, no throw) —
+  identical to json-rules-engine. **The default `false` is not identical**: it also
+  throws on a missing fact, but *eagerly and globally* (see [edge cases](#behavioral-edge-cases)).
 
 ## ⚙️ One-line changes
 
@@ -74,9 +87,25 @@ Existing rule documents compile as-is. All of these behave identically:
 | --- | --- |
 | `await engine.run(facts)` | `engine.run(facts)` (synchronous; no `await`, no `.then()`) |
 | `engine.on('success', cb)` | iterate the returned `events` (`on('failure')` has no counterpart — see below) |
+| `engine.on('success', () => engine.stop())` (stop at first match) | `run(facts, { stopOnFirstEvent: true })` |
 | `engine.addOperator(name, cb)` | `compile(rules, { operators: { name: cb } })` |
 | `engine.setCondition(name, cond)` | `compile(rules, { conditions: { name: cond } })` |
 | built-in `path` (jsonpath-plus) | inject it (see below) |
+
+**First match only.** `engine.on('success', () => engine.stop())` becomes a run
+option — the same compiled engine can run full or first-match:
+
+```js
+// json-rules-engine — stop after the first (highest-priority) match
+const engine = new Engine(rules)
+engine.on('success', () => engine.stop())
+const { events } = await engine.run(facts) // → [ firstMatch ]
+
+// fast-json-rules-engine — pass the run option
+const { events } = compile(rules).run(facts, { stopOnFirstEvent: true }) // → [ firstMatch ]
+// Note: with the default allowUndefinedFacts:false, the global pre-check still runs
+// first, so a fact missing on a skipped lower-priority rule still throws (see below).
+```
 
 **`path` needs an injected resolver.** The core ships zero runtime dependencies,
 so JSONPath is opt-in — pass jsonpath-plus (use `jsonpath-plus@^10.4.0`; older
@@ -92,6 +121,11 @@ const engine = compile(rules, {
 
 A rule using `path` without a `pathResolver` throws `CompileError` at compile
 time — it never silently ignores the path.
+
+> **Version note:** the parity oracle (json-rules-engine 6.6.0) bundles
+> jsonpath-plus **7.2.0**. Injecting v10 (recommended for the RCE fix) matches on
+> common paths but can differ on JSONPath edge cases where v7↔v10 semantics
+> changed. Pin the version if exact parity on exotic paths matters.
 
 ## ❌ Not supported (and what to do instead)
 
@@ -144,13 +178,28 @@ extend the resolver accordingly.
 Even where rules are identical, a few malformed-input behaviors differ on
 purpose (fail loud rather than guess):
 
-- **Falsy `event`** (`null`/`false`/`0`/`''`) throws `CompileError` instead of
-  defaulting to `{ type: 'unknown' }`.
+- **A missing or falsy `event`** (absent `event` key, or `null`/`false`/`0`/`''`)
+  throws `CompileError`, whereas json-rules-engine defaults it to `{ type: 'unknown' }`.
 - **`priority`** is parsed like json-rules-engine (`|| 1`, then `parseInt`); a
   parsed result `<= 0` throws in both engines, but an *unparseable* priority
   (`parseInt` → `NaN`) throws here while json-rules-engine stores `NaN` and runs.
 - **Missing `value` on a leaf, or missing `event.type`** throws `CompileError`
   (json-rules-engine also rejects these).
+- **Condition nesting is capped at depth 512.** A tree — or a fully-expanded
+  named-condition chain — deeper than 512 throws `CompileError` at compile time,
+  where json-rules-engine keeps recursing (and eventually overflows the stack with
+  a `RangeError` at run time). A deliberate fail-loud bound.
+- **Other malformed input fails loud at *compile*** (`CompileError`) rather than at
+  run time: an unknown operator/decorator, a circular named-condition reference, and
+  a non-string `fact` / value-`fact` identifier. json-rules-engine surfaces these
+  later — a run-time `Error`, a stack overflow, or an undefined-fact read. (The
+  non-string-`fact` case is TypeScript-forbidden, so it mainly affects untyped JS.)
+- **An unknown named condition** (`{ condition: 'name' }` with no matching entry in
+  `options.conditions`) throws `CompileError` **eagerly at compile** here — before
+  any run, regardless of short-circuit — whereas json-rules-engine throws a plain
+  `Error('No condition "name" exists')` **lazily at run**, and only if that branch is
+  actually evaluated. Set `allowUndefinedConditions: true` to compile it to `false`
+  instead (matches json-rules-engine).
 - **Undefined facts fail loud *eagerly and globally*.** With the default
   `allowUndefinedFacts: false`, `run()` checks every fact referenced by *any* rule
   up front and throws `UndefinedFactError` before evaluating a single rule — so a
@@ -186,9 +235,32 @@ purpose (fail loud rather than guess):
   `allowUndefinedFacts: true` to treat an absent fact as `undefined` (no throw).
 - **Returned events are normalized** to `{ type, params? }` (falsy `params` and
   any non-`type`/`params` keys dropped) exactly like json-rules-engine's
-  `setEvent`. The returned event is a fresh engine-owned object reused across
-  evaluations, and its `params` *aliases* the source rule (no per-run deep clone) —
-  treat returned events as read-only.
+  `setEvent`. But unlike json-rules-engine — which deep-clones the event on every
+  run — this engine returns **the same event object on every run**, with its
+  `params` *aliasing the source rule* (no per-run clone). So mutating a returned
+  event corrupts the source rule **and every later run**; treat them as read-only:
+
+  ```js
+  // json-rules-engine — deep-cloned per run; each result is an independent snapshot
+  const engine = new Engine(rules)
+  ;(await engine.run(facts)).events[0].params.tag = 'X'
+  ;(await engine.run(facts)).events[0].params.tag // → undefined (unaffected)
+
+  // fast-json-rules-engine — same object reused; params aliases the rule
+  const engine = compile(rules)
+  engine.run(facts).events[0].params.tag = 'X'
+  engine.run(facts).events[0].params.tag // → 'X' (corrupted — same object; source rule mutated too)
+  ```
+
+  If you need to modify a returned event, copy it first (as the resolver above does).
+- **`name` on a rule or condition is accepted but inert** — it has no observable
+  effect, since per-rule `results` aren't returned. json-rules-engine surfaces it in
+  its result objects.
+- **Facts are read with own-property semantics** (`hasOwnProperty`). A fact whose
+  name matches only an *inherited enumerable* property of the facts object (e.g. one
+  built via `Object.create` with enumerable prototype members) reads as **absent**
+  here, whereas json-rules-engine ingests facts with `for…in` and would see it.
+  Irrelevant for ordinary `{ … }` / `JSON.parse` facts.
 
 Operator semantics themselves match json-rules-engine 6.6.0 exactly (verified by
 differential fuzzing), including subtle ones: `numberValidator` (so `null >= 0`
