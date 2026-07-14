@@ -38,6 +38,7 @@ TypeScript >= 4.7).
 
 ## Usage
 
+> Docs site: **[bobdu.github.io/fast-json-rules-engine](https://bobdu.github.io/fast-json-rules-engine/)**.
 > Full walkthrough of every feature: **[docs/USAGE.md](./docs/USAGE.md)**.
 > Runnable scripts (real rules + facts + output): **[examples/](./examples/)**.
 
