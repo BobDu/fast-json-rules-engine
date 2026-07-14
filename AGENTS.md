@@ -83,11 +83,14 @@ Two layers, kept separate so the fast source suite never needs a fresh build:
 
 The one trap not obvious from the code: **`src/` must stay within the Node-14
 runtime-API baseline** — new *syntax* is fine (tsdown down-levels it), new *runtime
-APIs* (`structuredClone`, `Object.hasOwn`, …) are not (`eslint-plugin-n` linting the
-built dist + the Node 14 dist smoke fail on them). Test code runs on modern Node and
-uses them freely. The lint deliberately targets dist, not src: dist is plain JS (no
-TS parser needed — TS 7 has no JS API for typescript-eslint to use) and is exactly
-what ships.
+APIs* (`structuredClone`, `Object.hasOwn`, …) are not. Three layers enforce it:
+typecheck (src types resolve against `lib: ES2020` with no node types, so newer APIs
+don't exist at compile time), `eslint-plugin-n` linting the built dist (catches what
+actually ships, including anything the build injects; the 100% coverage gate closes
+the tree-shaken-dead-code gap), and the Node 14 dist smoke. Test code runs on modern
+Node and uses them freely. The lint deliberately targets dist, not src: dist is plain
+JS (no TS parser needed — TS 7 has no JS API for typescript-eslint to use) and is
+exactly what ships.
 
 Everything else — full dev loop, the 100% coverage gate, doc-sync, Conventional
 Commits + DCO sign-off (`-s`; maintainer commits are also GPG-signed, `-S`) — is
