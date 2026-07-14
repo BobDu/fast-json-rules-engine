@@ -13,7 +13,8 @@ PRs are welcome.
   against json-rules-engine. `npm run test:coverage` enforces 100% coverage.
 - Test the built artifact: `npm run test:dist` — CJS/ESM smoke on Node 14+,
   src↔dist equivalence, and `arethetypeswrong`.
-- Typecheck: `npm run typecheck` (src strict + tests). Lint: `npm run lint`.
+- Typecheck: `npm run typecheck` (src strict + tests). Lint: `npm run lint`
+  (builds, then lints the dist output against the Node 14 API baseline).
 - Benchmark: `npm run bench`.
 - Turn up fuzzing locally: `FJRE_FUZZ_N=10000 npm test`. A failure prints a
   reproducible seed you can re-run.
