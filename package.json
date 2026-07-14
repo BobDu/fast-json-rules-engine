@@ -1,7 +1,7 @@
 {
   "name": "fast-json-rules-engine",
   "version": "0.0.0-development",
-  "description": "Fast, compiled, zero-dependency rules engine compatible with the json-rules-engine JSON rule format",
+  "description": "Compiled, synchronous, zero-dependency rules engine compatible with the json-rules-engine rule format — compile once, no Promise overhead per run.",
   "keywords": [
     "rules",
     "rules-engine",
