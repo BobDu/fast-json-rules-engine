@@ -1,3 +1,7 @@
+---
+description: How to migrate from json-rules-engine — what works unchanged, what needs a one-line change, what is deliberately unsupported, and the behavioral edge cases.
+---
+
 # Migrating from json-rules-engine
 
 fast-json-rules-engine is a **drop-in replacement for the rule format and the
@@ -274,13 +278,13 @@ json-rules-engine's `examples/` mapped to this library:
 
 | json-rules-engine example | Here |
 | --- | --- |
-| `01-hello-world` | [`examples/01-basics.mjs`](../examples/01-basics.mjs) |
-| `02-nested-boolean-logic` | [`examples/03-boolean-composition.mjs`](../examples/03-boolean-composition.mjs) |
-| `06-custom-operators` | [`examples/06-named-and-custom.mjs`](../examples/06-named-and-custom.mjs) |
-| `08-fact-comparison` | [`examples/06-named-and-custom.mjs`](../examples/06-named-and-custom.mjs) (value fact ref) |
+| `01-hello-world` | [`examples/01-basics.mjs`](https://github.com/BobDu/fast-json-rules-engine/blob/main/examples/01-basics.mjs) |
+| `02-nested-boolean-logic` | [`examples/03-boolean-composition.mjs`](https://github.com/BobDu/fast-json-rules-engine/blob/main/examples/03-boolean-composition.mjs) |
+| `06-custom-operators` | [`examples/06-named-and-custom.mjs`](https://github.com/BobDu/fast-json-rules-engine/blob/main/examples/06-named-and-custom.mjs) |
+| `08-fact-comparison` | [`examples/06-named-and-custom.mjs`](https://github.com/BobDu/fast-json-rules-engine/blob/main/examples/06-named-and-custom.mjs) (value fact ref) |
 | `09-rule-results` | ❌ not supported — `run()` returns only `events`, not per-rule results |
-| `10-condition-sharing` | [`examples/06-named-and-custom.mjs`](../examples/06-named-and-custom.mjs) (named conditions) |
-| `13-using-operator-decorators` | [`examples/05-decorators.mjs`](../examples/05-decorators.mjs) |
+| `10-condition-sharing` | [`examples/06-named-and-custom.mjs`](https://github.com/BobDu/fast-json-rules-engine/blob/main/examples/06-named-and-custom.mjs) (named conditions) |
+| `13-using-operator-decorators` | [`examples/05-decorators.mjs`](https://github.com/BobDu/fast-json-rules-engine/blob/main/examples/05-decorators.mjs) |
 | `03-dynamic-facts` | ❌ not supported (compute facts up front) |
 | `04-fact-dependency` | ❌ not supported (compute facts up front) |
 | `05-optimizing-runtime-with-fact-priorities` | ⚠️ sub-condition priorities compile but are ignored (no async/expensive facts to reorder around) |

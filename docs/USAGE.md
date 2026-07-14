@@ -1,3 +1,7 @@
+---
+description: Complete, runnable walkthrough of every fast-json-rules-engine feature — compile options, operators, decorators, named conditions, paths, and error handling.
+---
+
 # Usage
 
 A complete, runnable walkthrough of every feature. All results shown in comments
@@ -267,4 +271,4 @@ matching json-rules-engine; primitives pass through unchanged.
 
 ## See also
 
-- [README](../README.md) — overview, benchmarks, compatibility matrix, migration.
+- [README](https://github.com/BobDu/fast-json-rules-engine#readme) — overview, benchmarks, compatibility matrix, migration.

@@ -63,7 +63,10 @@
     "test:contract": "npm run build && node test/dist-smoke.cjs && node test/dist-smoke.mjs && vitest run --config vitest.dist.config.ts",
     "test:types": "attw --pack .",
     "test:dist": "npm run test:contract && npm run test:types",
-    "bench": "npm run build && node bench/bench.mjs"
+    "bench": "npm run build && node bench/bench.mjs",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
@@ -78,6 +81,7 @@
     "oxlint": "^1.73.0",
     "tsdown": "^0.22.7",
     "typescript": "^7",
+    "vitepress": "^1.6.4",
     "vitest": "^4.1.9"
   }
 }

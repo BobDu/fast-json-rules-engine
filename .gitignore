@@ -8,3 +8,4 @@ npm-debug.log*
 
 # Claude Code local tooling (worktrees, local settings)
 .claude/
+docs/.vitepress/cache/
