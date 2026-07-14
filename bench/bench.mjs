@@ -70,7 +70,10 @@ const F = (i) => FACTS_POOL[i & 15]
 
 async function median(label, iters, runOnce, isAsync) {
   const samples = []
-  for (let i = 0; i < Math.min(iters, 2000); i++) isAsync ? await runOnce(i) : runOnce(i)
+  for (let i = 0; i < Math.min(iters, 2000); i++) {
+    if (isAsync) await runOnce(i)
+    else runOnce(i)
+  }
   for (let r = 0; r < 7; r++) {
     const t0 = performance.now()
     if (isAsync) for (let i = 0; i < iters; i++) await runOnce(i)

@@ -57,7 +57,7 @@
     "prepack": "npm run build",
     "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run test:dist",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "lint": "npm run build && eslint dist",
+    "lint": "oxlint src test examples bench && npm run build && eslint dist",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:contract": "npm run build && node test/dist-smoke.cjs && node test/dist-smoke.mjs && vitest run --config vitest.dist.config.ts",
@@ -75,6 +75,7 @@
     "fast-check": "^4.8.0",
     "json-rules-engine": "6.6.0",
     "jsonpath-plus": "^10.4.0",
+    "oxlint": "^1.73.0",
     "tsdown": "^0.22.7",
     "typescript": "^7",
     "vitest": "^4.1.9"

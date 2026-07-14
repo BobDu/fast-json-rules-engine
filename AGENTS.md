@@ -20,7 +20,7 @@ Build/test need **Node ≥20** (`.nvmrc` = 24); the *published* package runs on 
 - `npm test` — Layer 1: source suite + differential fuzzing (fast, build-independent)
 - `npm run test:coverage` — same, with the **100% coverage gate**
 - `npm run test:dist` — Layer 2: build, then CJS/ESM smoke + src↔dist equivalence + `arethetypeswrong`
-- `npm run typecheck` (src strict **and** tests) · `npm run lint` (builds, then lints **dist** against the Node-14 API baseline) · `npm run build` · `npm run bench`
+- `npm run typecheck` (src strict **and** tests) · `npm run lint` (oxlint correctness on src/test/examples/bench, then builds and lints **dist** against the Node-14 API baseline) · `npm run build` · `npm run bench`
 - one file: `npx vitest run test/golden.test.ts` · by name: `-t "numberValidator"` · heavier fuzz (prints a repro seed on failure): `FJRE_FUZZ_N=10000 npm test`
 
 ## Architecture
