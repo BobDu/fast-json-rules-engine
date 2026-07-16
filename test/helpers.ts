@@ -68,8 +68,16 @@ function evaluateOwn(
   }
 }
 
-const key = (x: unknown): string => JSON.stringify(x)
-const sortBy = <T>(xs: T[]): T[] => [...xs].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0))
+export function isDeepStrictMultisetEqual<T>(left: T[], right: T[]): boolean {
+  if (left.length !== right.length) return false
+  const unmatched = [...right]
+  for (const value of left) {
+    const index = unmatched.findIndex((candidate) => isDeepStrictEqual(value, candidate))
+    if (index === -1) return false
+    unmatched.splice(index, 1)
+  }
+  return true
+}
 
 /**
  * Assert our compiled output matches json-rules-engine for the same rules/facts,
@@ -88,8 +96,8 @@ export async function expectMatch(
   expect(mine.threw, `throw mismatch: mine=${mine.threw} ref=${ref.threw}`).toBe(ref.threw)
   if (ref.threw) return
 
-  const pick = cmp.orderInsensitive ? sortBy : <T>(x: T[]) => x
-  expect(pick(mine.events!)).toEqual(pick(ref.events!))
+  if (cmp.orderInsensitive) expect(isDeepStrictMultisetEqual(mine.events!, ref.events!)).toBe(true)
+  else expect(mine.events!).toEqual(ref.events!)
 }
 
 /** Non-throwing variant for fast-check properties: returns true iff engines agree. */
@@ -102,6 +110,7 @@ export async function agrees(
   const ref = await referenceRun(rules, facts, options)
   const mine = evaluateOwn(rules, facts, options)
   if (mine.threw || ref.threw) return mine.threw === ref.threw
-  const pick = cmp.orderInsensitive ? sortBy : <T>(x: T[]) => x
-  return isDeepStrictEqual(pick(mine.events!), pick(ref.events!))
+  return cmp.orderInsensitive
+    ? isDeepStrictMultisetEqual(mine.events!, ref.events!)
+    : isDeepStrictEqual(mine.events!, ref.events!)
 }

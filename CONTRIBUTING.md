@@ -17,7 +17,8 @@ PRs are welcome.
   (builds, then lints the dist output against the Node 14 API baseline).
 - Benchmark: `npm run bench`.
 - Turn up fuzzing locally: `FJRE_FUZZ_N=10000 npm test`. A failure prints a
-  reproducible seed you can re-run.
+  reproducible seed; replay one with
+  `FJRE_FUZZ_N=10000 FJRE_FUZZ_SEED=<seed> npx vitest run test/fuzz.test.ts`.
 
 ## Ground rules
 

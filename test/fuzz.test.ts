@@ -9,7 +9,11 @@ import { rulesTied, rulesDistinct, rulesWithRefTied, namedConditions, facts, CUS
 // repro, and prints a reproducible seed on failure. Generators live in
 // ./arbitraries (shared with the src↔dist contract suite).
 
-fc.configureGlobal({ numRuns: Number(process.env.FJRE_FUZZ_N ?? 400) })
+const fuzzSeed = process.env.FJRE_FUZZ_SEED
+fc.configureGlobal({
+  numRuns: Number(process.env.FJRE_FUZZ_N ?? 400),
+  ...(fuzzSeed === undefined ? {} : { seed: Number(fuzzSeed) }),
+})
 
 test.prop([rulesTied, facts, fc.boolean()])(
   'core: compiled output equals json-rules-engine',
