@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">fast-json-rules-engine logo</title>
+  <desc id="desc">JSON braces surrounding a compact three-node rule tree with an amber compile junction.</desc>
+
+  <g fill="none" stroke="#24324A" stroke-width="72" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M350 154h-48c-58 0-86 34-86 92v116c0 72-26 112-94 150 68 38 94 78 94 150v116c0 58 28 92 86 92h48"/>
+    <path d="M690 154h40c58 0 86 34 86 92v116c0 72 26 112 94 150-68 38-94 78-94 150v116c0 58-28 92-86 92h-40"/>
+  </g>
+
+  <g fill="none" stroke="#27B3A2" stroke-width="58" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M438 344v86c0 42 18 70 62 92"/>
+    <path d="M500 522 408 682"/>
+    <path d="M500 522c52 42 88 82 132 126"/>
+  </g>
+
+  <g fill="none" stroke="#27B3A2" stroke-width="46">
+    <circle cx="438" cy="286" r="54"/>
+    <circle cx="382" cy="724" r="46"/>
+    <circle cx="674" cy="686" r="50"/>
+  </g>
+
+  <rect x="470" y="492" width="60" height="60" rx="8" fill="#F2A93B" transform="rotate(45 500 522)"/>
+</svg>

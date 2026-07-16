@@ -1,6 +1,6 @@
 # fast-json-rules-engine
 
-> Same rules JSON, compiled once — no promises, no clones.
+> json-rules-engine rules, compiled for synchronous speed.
 
 [![CI](https://github.com/BobDu/fast-json-rules-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/BobDu/fast-json-rules-engine/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/fast-json-rules-engine.svg)](https://www.npmjs.com/package/fast-json-rules-engine)

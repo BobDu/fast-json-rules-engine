@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">fast-json-rules-engine</title>
+  <desc id="desc">Social preview for a compiled, synchronous, zero-dependency JSON rules engine.</desc>
+
+  <rect width="1280" height="640" fill="#F7FAFC"/>
+  <circle cx="216" cy="320" r="258" fill="#E8F7F5"/>
+  <path d="M0 572h1280" stroke="#DCE5EA" stroke-width="2"/>
+  <path d="M1080 0h200v200z" fill="#F2A93B" opacity=".1"/>
+  <circle cx="1180" cy="96" r="10" fill="#F2A93B"/>
+
+  <g transform="translate(15 85) scale(.46)">
+    <g fill="none" stroke="#24324A" stroke-width="72" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M350 154h-48c-58 0-86 34-86 92v116c0 72-26 112-94 150 68 38 94 78 94 150v116c0 58 28 92 86 92h48"/>
+      <path d="M690 154h40c58 0 86 34 86 92v116c0 72 26 112 94 150-68 38-94 78-94 150v116c0 58-28 92-86 92h-40"/>
+    </g>
+    <g fill="none" stroke="#27B3A2" stroke-width="58" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M438 344v86c0 42 18 70 62 92"/>
+      <path d="M500 522 408 682"/>
+      <path d="M500 522c52 42 88 82 132 126"/>
+    </g>
+    <g fill="none" stroke="#27B3A2" stroke-width="46">
+      <circle cx="438" cy="286" r="54"/>
+      <circle cx="382" cy="724" r="46"/>
+      <circle cx="674" cy="686" r="50"/>
+    </g>
+    <rect x="470" y="492" width="60" height="60" rx="8" fill="#F2A93B" transform="rotate(45 500 522)"/>
+  </g>
+
+  <g transform="translate(500 0)">
+    <text x="0" y="254" fill="#24324A" font-family="DejaVu Sans, sans-serif" font-size="57" font-weight="700" letter-spacing="-2.2">fast-json-rules-engine</text>
+    <rect x="0" y="291" width="72" height="8" rx="4" fill="#27B3A2"/>
+    <text x="0" y="365" fill="#526276" font-family="DejaVu Sans, sans-serif" font-size="27" font-weight="400">Same rules. Compile once. Run fast.</text>
+
+    <g transform="translate(0 458)" font-family="DejaVu Sans Mono, monospace" font-size="17" font-weight="700">
+      <rect width="155" height="44" rx="22" fill="#E8F7F5"/>
+      <circle cx="23" cy="22" r="5" fill="#27B3A2"/>
+      <text x="39" y="28" fill="#2E5C5A">synchronous</text>
+
+      <g transform="translate(170)">
+        <rect width="196" height="44" rx="22" fill="#EEF2F6"/>
+        <circle cx="23" cy="22" r="5" fill="#24324A"/>
+        <text x="39" y="28" fill="#435166">zero dependencies</text>
+      </g>
+
+      <g transform="translate(381)">
+        <rect width="169" height="44" rx="22" fill="#FFF4DE"/>
+        <circle cx="23" cy="22" r="5" fill="#F2A93B"/>
+        <text x="39" y="28" fill="#79551F">drop-in rules</text>
+      </g>
+    </g>
+  </g>
+</svg>

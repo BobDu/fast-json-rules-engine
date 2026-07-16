@@ -4,8 +4,8 @@ description: Compiled, synchronous, zero-dependency rules engine compatible with
 
 hero:
   name: fast-json-rules-engine
-  text: Same rules JSON, compiled once
-  tagline: A compiled, synchronous, zero-dependency engine for the json-rules-engine rule format — no promises, no clones.
+  text: Compiled for synchronous speed
+  tagline: Same rules. Compile once. Run synchronously — with zero dependencies.
   actions:
     - theme: brand
       text: Usage guide
